@@ -1,0 +1,426 @@
+import openmdao.api as om
+import unittest
+import numpy as np
+from openmdao.utils.assert_utils import assert_near_equal, assert_check_partials
+from examples.propulsion_layouts.simple_series_hybrid import TwinSeriesHybridElectricPropulsionSystem
+from openconcept.architecting.propulsion_systems.turboelectric_twin_prop \
+    import TurboelectricTwinPropOneEngine, TurboelectricTwinPropOneEngineExpanded, \
+    TurboelectricTwinPropTwoEnginesExpanded
+from openconcept.utilities.linearinterp import LinearInterpolator
+from openmdao.api import DirectSolver, IndepVarComp, NewtonSolver, BoundsEnforceLS
+
+
+class TurboelectricTwinPropTestGroup(om.Group):
+    """
+    Test the turboelectric twin propulsion system
+    """
+
+    def initialize(self):
+        self.options.declare('vec_size', default=11, desc="Number of mission analysis points to run")
+
+    def setup(self):
+        nn = self.options['vec_size']
+
+        controls = self.add_subsystem('controls', om.IndepVarComp(), promotes_outputs=['*'])
+        controls.add_output('prop|rpm', val=np.ones(nn) * 1900, units='rpm')
+
+        dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes_outputs=['*'])
+        dvs.add_output('ac|propulsion|engine|rating', val=650, units='kW')
+        dvs.add_output('ac|propulsion|propeller|diameter', val=2.3, units='m')
+        dvs.add_output('ac|propulsion|propeller|power_rating', val=240, units='kW')
+        dvs.add_output('ac|propulsion|motor|rating', val=240, units='kW')
+        dvs.add_output('ac|propulsion|generator|rating', val=2000, units='kW')
+
+        flt_cond = self.add_subsystem('flt_cond', om.IndepVarComp(), promotes_outputs=['*'])
+        flt_cond.add_output('fltcond|rho', units='kg / m ** 3', desc='Air density', val=np.ones(nn) * 0.475448)
+        flt_cond.add_output('fltcond|Utrue', units='m/s', desc='Flight speed', val=np.ones(nn) * 92.5)
+
+        mission_prms = self.add_subsystem('mission_prms', om.IndepVarComp(), promotes_outputs=['*'])
+        mission_prms.add_output('throttle', val=np.ones(nn) * 0.90)
+        mission_prms.add_output('propulsor_active', val=np.ones(nn) * 1.0)
+
+        # define propulsion system
+        propulsion_promotes_outputs = ['fuel_flow', 'thrust']
+        propulsion_promotes_inputs = ["ac|propulsion|*", "fltcond|*", "throttle", "propulsor_active"]
+
+        self.add_subsystem('propmodel', TurboelectricTwinPropOneEngine(num_nodes=nn),
+                           promotes_inputs=propulsion_promotes_inputs,
+                           promotes_outputs=propulsion_promotes_outputs)
+
+        self.connect('prop|rpm', ['propmodel.prop1.rpm', 'propmodel.prop2.rpm'])
+
+
+class TurboelectricTwinPropExpandedOneEngineTestGroup(om.Group):
+    """
+    Test the turboelectric twin expanded propulsion system
+    expanded system additionally include rectifiers, dc bus, inverters and gearboxs
+    """
+
+    def initialize(self):
+        self.options.declare('vec_size', default=11, desc="Number of mission analysis points to run")
+        self.options.declare('engine_out', default=True)
+
+    def setup(self):
+        nn = self.options['vec_size']
+        engine_out = self.options['engine_out']
+
+        controls = self.add_subsystem('controls', om.IndepVarComp(), promotes_outputs=['*'])
+        controls.add_output('prop|rpm', val=np.ones(nn) * 1900, units='rpm')
+
+        dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes_outputs=['*'])
+        dvs.add_output('ac|propulsion|propeller|diameter', val=2.3, units='m')
+        dvs.add_output('ac|propulsion|propeller|max_speed', val=2900.0, units='rpm')
+        dvs.add_output('ac|propulsion|propeller|min_speed', val=400.0, units='rpm')
+        dvs.add_output('ac|propulsion|motor|rating', val=240, units='kW')
+        dvs.add_output('ac|propulsion|motor|max_speed', val=5500.0, units='rpm')
+        dvs.add_output('ac|propulsion|propeller|power_rating', val=240, units='kW')
+        dvs.add_output('ac|propulsion|splitter|power_rating', val=99999999, units='W')
+        dvs.add_output('ac|propulsion|engine|rating', val=260, units='kW')
+        dvs.add_output('ac|propulsion|generator|rating', val=250, units='kW')
+
+        flt_cond = self.add_subsystem('flt_cond', om.IndepVarComp(), promotes_outputs=['*'])
+        flt_cond.add_output('fltcond|rho', units='kg / m ** 3', desc='Air density', val=np.ones(nn) * 0.475448)
+        flt_cond.add_output('fltcond|Utrue', units='m/s', desc='Flight speed', val=np.ones(nn) * 92.5)
+
+        mission_prms = self.add_subsystem('mission_prms', om.IndepVarComp(), promotes_outputs=['*'])
+        mission_prms.add_output('throttle', val=np.ones(nn) * 0.90)
+        if engine_out:
+            mission_prms.add_output('propulsor_active', val=np.ones(nn) * 0.0)
+        else:
+            mission_prms.add_output('propulsor_active', val=np.ones(nn) * 1.0)
+
+        # define propulsion system
+        propulsion_promotes_outputs = ['fuel_flow', 'thrust']
+        propulsion_promotes_inputs = ["ac|propulsion|*", "fltcond|*", "throttle", "propulsor_active"]
+
+        self.add_subsystem('propmodel', TurboelectricTwinPropOneEngineExpanded(num_nodes=nn),
+                           promotes_inputs=propulsion_promotes_inputs,
+                           promotes_outputs=propulsion_promotes_outputs)
+
+        self.connect('prop|rpm', ['propmodel.prop1.rpm', 'propmodel.prop2.rpm'])
+
+
+class TurboelectricTwinPropExpandedTwoEnginesTestGroup(om.Group):
+    """
+    Test the turboelectric twin expanded propulsion system
+    expanded system additionally include rectifiers, dc bus, inverters and gearboxs
+    """
+
+    def initialize(self):
+        self.options.declare('vec_size', default=11, desc="Number of mission analysis points to run")
+        self.options.declare('engine_out', default=True)
+
+    def setup(self):
+        nn = self.options['vec_size']
+        engine_out = self.options['engine_out']
+
+        controls = self.add_subsystem('controls', om.IndepVarComp(), promotes_outputs=['*'])
+        controls.add_output('prop|rpm', val=np.ones(nn) * 1900, units='rpm')
+
+        dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes_outputs=['*'])
+        dvs.add_output('ac|propulsion|propeller|diameter', val=2.3, units='m')
+        dvs.add_output('ac|propulsion|propeller|max_speed', val=2900.0, units='rpm')
+        dvs.add_output('ac|propulsion|propeller|min_speed', val=400.0, units='rpm')
+        dvs.add_output('ac|propulsion|motor|rating', val=240, units='kW')
+        dvs.add_output('ac|propulsion|motor|max_speed', val=5500.0, units='rpm')
+        dvs.add_output('ac|propulsion|propeller|power_rating', val=240, units='kW')
+        dvs.add_output('ac|propulsion|splitter|power_rating', val=99999999, units='W')
+        dvs.add_output('ac|propulsion|engine|rating', val=260, units='kW')
+        dvs.add_output('ac|propulsion|generator|rating', val=250, units='kW')
+
+        flt_cond = self.add_subsystem('flt_cond', om.IndepVarComp(), promotes_outputs=['*'])
+        flt_cond.add_output('fltcond|rho', units='kg / m ** 3', desc='Air density', val=np.ones(nn) * 0.475448)
+        flt_cond.add_output('fltcond|Utrue', units='m/s', desc='Flight speed', val=np.ones(nn) * 92.5)
+
+        mission_prms = self.add_subsystem('mission_prms', om.IndepVarComp(), promotes_outputs=['*'])
+        mission_prms.add_output('throttle', val=np.ones(nn) * 0.90)
+        if engine_out:
+            mission_prms.add_output('propulsor_active', val=np.ones(nn) * 0.0)
+        else:
+            mission_prms.add_output('propulsor_active', val=np.ones(nn) * 1.0)
+
+        # define propulsion system
+        propulsion_promotes_outputs = ['fuel_flow', 'thrust']
+        propulsion_promotes_inputs = ["ac|propulsion|*", "fltcond|*", "throttle", "propulsor_active"]
+
+        self.add_subsystem('propmodel', TurboelectricTwinPropTwoEnginesExpanded(num_nodes=nn),
+                           promotes_inputs=propulsion_promotes_inputs,
+                           promotes_outputs=propulsion_promotes_outputs)
+
+        self.connect('prop|rpm', ['propmodel.prop1.rpm', 'propmodel.prop2.rpm'])
+
+
+class TurboelectricTwinPropTestCase(unittest.TestCase):
+
+    def test_default_settings(self):
+        prob = om.Problem(TurboelectricTwinPropTestGroup(vec_size=11))
+        prob.model.nonlinear_solver = NewtonSolver(iprint=1)
+        prob.model.options['assembled_jac_type'] = 'csc'
+        prob.model.linear_solver = DirectSolver(assemble_jac=True)
+        prob.model.nonlinear_solver.options['solve_subsystems'] = True  # important to solve subsystem implicit eqns
+        prob.model.nonlinear_solver.options['maxiter'] = 10
+        prob.model.nonlinear_solver.options['atol'] = 1e-7
+        prob.model.nonlinear_solver.options['rtol'] = 1e-7
+        prob.setup(check=True, force_alloc_complex=True)
+        # om.n2(prob, show_browser=True)
+        prob.run_model()
+        prob.model.list_inputs(units=True,
+                               prom_name=True,
+                               shape=True,
+                               hierarchical=False,
+                               print_arrays=True)
+
+        # show outputs
+        prob.model.list_outputs(implicit=True,
+                                explicit=True,
+                                prom_name=True,
+                                units=True,
+                                shape=True,
+                                bounds=False,
+                                residuals=False,
+                                scaling=False,
+                                hierarchical=False,
+                                print_arrays=True)
+
+
+class TurboelectricTwinPropExpandedOneEngineTestCase(unittest.TestCase):
+
+    def test_default_settings(self):  # all engines active
+        prob = om.Problem(TurboelectricTwinPropExpandedOneEngineTestGroup(vec_size=11, engine_out=False))
+        prob.model.nonlinear_solver = NewtonSolver(iprint=1)
+        prob.model.options['assembled_jac_type'] = 'csc'
+        prob.model.linear_solver = DirectSolver(assemble_jac=True)
+        prob.model.nonlinear_solver.options['solve_subsystems'] = True  # important to solve subsystem implicit eqns
+        prob.model.nonlinear_solver.options['maxiter'] = 10
+        prob.model.nonlinear_solver.options['atol'] = 1e-7
+        prob.model.nonlinear_solver.options['rtol'] = 1e-7
+        prob.setup(check=True, force_alloc_complex=True)
+        # om.n2(prob, show_browser=True)
+        prob.run_model()
+        assert_near_equal(prob.get_val('propmodel.motor1.shaft_power_out', units='kW'),
+                          np.ones(11) * 0.9 * 240 * 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor1.elec_load', units='kW'),
+                          np.ones(11) * 0.9 * 240, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor2.shaft_power_out', units='kW'),
+                          np.ones(11) * 0.9 * 240 * 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor2.elec_load', units='kW'),
+                          np.ones(11) * 0.9 * 240, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.inverter1.elec_power_in', units='kW'),
+                          np.ones(11) * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.inverter2.elec_power_in', units='kW'),
+                          np.ones(11) * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.dc_bus.elec_power_out', units='kW'),
+                          np.ones(11) * 2 * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.dc_bus.elec_power_in', units='kW'),
+                          (np.ones(11) * 2 * 0.9 * 240 / 0.97) / 0.99, tolerance=1e-6)
+        # test the balancer
+        assert_near_equal(prob.get_val('propmodel.rectifier1.elec_power_out', units='kW'),
+                          prob.get_val('propmodel.dc_bus.elec_power_in', units='kW'), tolerance=1e-6)
+        prob.model.list_inputs(units=True,
+                               prom_name=True,
+                               shape=True,
+                               hierarchical=False,
+                               print_arrays=True)
+
+        # show outputs
+        prob.model.list_outputs(implicit=True,
+                                explicit=True,
+                                prom_name=True,
+                                units=True,
+                                shape=True,
+                                bounds=False,
+                                residuals=False,
+                                scaling=False,
+                                hierarchical=False,
+                                print_arrays=True)
+
+    def test_engine_out_settings(self):  # check one engine inoperative case
+        prob = om.Problem(TurboelectricTwinPropExpandedOneEngineTestGroup(vec_size=11, engine_out=True))
+        prob.model.nonlinear_solver = NewtonSolver(iprint=1)
+        prob.model.options['assembled_jac_type'] = 'csc'
+        prob.model.linear_solver = DirectSolver(assemble_jac=True)
+        prob.model.nonlinear_solver.options['solve_subsystems'] = True  # important to solve subsystem implicit eqns
+        prob.model.nonlinear_solver.options['maxiter'] = 10
+        prob.model.nonlinear_solver.options['atol'] = 1e-7
+        prob.model.nonlinear_solver.options['rtol'] = 1e-7
+        prob.setup(check=True, force_alloc_complex=True)
+        # om.n2(prob, show_browser=True)
+        prob.run_model()
+        assert_near_equal(prob.get_val('propmodel.motor1.shaft_power_out', units='kW'),
+                          np.ones(11) * 0.9 * 240 * 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor1.elec_load', units='kW'),
+                          np.ones(11) * 0.9 * 240, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.inverter1.elec_power_in', units='kW'),
+                          np.ones(11) * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.dc_bus.elec_power_out', units='kW'),
+                          np.ones(11) * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.dc_bus.elec_power_in', units='kW'),
+                          (np.ones(11) * 0.9 * 240 / 0.97) / 0.99, tolerance=1e-6)
+        # test power and thrust on the inactive branch, should be all zero
+        assert_near_equal(prob.get_val('propmodel.inverter2.elec_power_out', units='W'),
+                          np.zeros(11), tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor2.shaft_power_out', units='W'),
+                          np.zeros(11), tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.gearbox2.shaft_power_out', units='W'),
+                          np.zeros(11), tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.prop2.thrust', units='N'),
+                          np.zeros(11), tolerance=1e-6)
+        # test the balancer
+        assert_near_equal(prob.get_val('propmodel.rectifier1.elec_power_out', units='kW'),
+                          prob.get_val('propmodel.dc_bus.elec_power_in', units='kW'), tolerance=1e-6)
+        prob.model.list_inputs(units=True,
+                               prom_name=True,
+                               shape=True,
+                               hierarchical=False,
+                               print_arrays=True)
+
+        # show outputs
+        prob.model.list_outputs(implicit=True,
+                                explicit=True,
+                                prom_name=True,
+                                units=True,
+                                shape=True,
+                                bounds=False,
+                                residuals=False,
+                                scaling=False,
+                                hierarchical=False,
+                                print_arrays=True)
+
+
+class TurboelectricTwinPropExpandedTwoEnginesTestCase(unittest.TestCase):
+
+    def test_default_settings(self):  # test two engines turboelectric with all engines active
+        prob = om.Problem(TurboelectricTwinPropExpandedTwoEnginesTestGroup(vec_size=11, engine_out=False))
+        prob.model.nonlinear_solver = NewtonSolver(iprint=1)
+        prob.model.options['assembled_jac_type'] = 'csc'
+        prob.model.linear_solver = DirectSolver(assemble_jac=True)
+        prob.model.nonlinear_solver.options['solve_subsystems'] = True  # important to solve subsystem implicit eqns
+        prob.model.nonlinear_solver.options['maxiter'] = 10
+        prob.model.nonlinear_solver.options['atol'] = 1e-7
+        prob.model.nonlinear_solver.options['rtol'] = 1e-7
+        prob.setup(check=True, force_alloc_complex=True)
+        # om.n2(prob, show_browser=True)
+        prob.run_model()
+        assert_near_equal(prob.get_val('propmodel.motor1.shaft_power_out', units='kW'),
+                          np.ones(11) * 0.9 * 240 * 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor1.elec_load', units='kW'),
+                          np.ones(11) * 0.9 * 240, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor2.shaft_power_out', units='kW'),
+                          np.ones(11) * 0.9 * 240 * 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor2.elec_load', units='kW'),
+                          np.ones(11) * 0.9 * 240, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.inverter1.elec_power_in', units='kW'),
+                          np.ones(11) * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.inverter2.elec_power_in', units='kW'),
+                          np.ones(11) * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.dc_bus.elec_power_out', units='kW'),
+                          np.ones(11) * 2 * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.dc_bus.elec_power_in', units='kW'),
+                          (np.ones(11) * 2 * 0.9 * 240 / 0.97) / 0.99, tolerance=1e-6)
+        # test the balancer
+        assert_near_equal(prob.get_val('propmodel.addfuel.rectifiers_elec_power_out', units='kW'),
+                          prob.get_val('propmodel.dc_bus.elec_power_in', units='kW'), tolerance=1e-6)
+        prob.model.list_inputs(units=True,
+                               prom_name=True,
+                               shape=True,
+                               hierarchical=False,
+                               print_arrays=True)
+
+        # show outputs
+        prob.model.list_outputs(implicit=True,
+                                explicit=True,
+                                prom_name=True,
+                                units=True,
+                                shape=True,
+                                bounds=False,
+                                residuals=False,
+                                scaling=False,
+                                hierarchical=False,
+                                print_arrays=True)
+
+    def test_engine_out_settings(self):  # test two engines turboelectric with one motor out
+        prob = om.Problem(TurboelectricTwinPropExpandedTwoEnginesTestGroup(vec_size=11, engine_out=True))
+        prob.model.nonlinear_solver = NewtonSolver(iprint=1)
+        prob.model.options['assembled_jac_type'] = 'csc'
+        prob.model.linear_solver = DirectSolver(assemble_jac=True)
+        prob.model.nonlinear_solver.options['solve_subsystems'] = True  # important to solve subsystem implicit eqns
+        prob.model.nonlinear_solver.options['maxiter'] = 10
+        prob.model.nonlinear_solver.options['atol'] = 1e-7
+        prob.model.nonlinear_solver.options['rtol'] = 1e-7
+        prob.setup(check=True, force_alloc_complex=True)
+        # om.n2(prob, show_browser=True)
+        prob.run_model()
+        assert_near_equal(prob.get_val('propmodel.motor1.shaft_power_out', units='kW'),
+                          np.ones(11) * 0.9 * 240 * 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor1.elec_load', units='kW'),
+                          np.ones(11) * 0.9 * 240, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.inverter1.elec_power_in', units='kW'),
+                          np.ones(11) * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.dc_bus.elec_power_out', units='kW'),
+                          np.ones(11) * 0.9 * 240 / 0.97, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.dc_bus.elec_power_in', units='kW'),
+                          (np.ones(11) * 0.9 * 240 / 0.97) / 0.99, tolerance=1e-6)
+        # test power and thrust on the inactive branch, should be all zero
+        assert_near_equal(prob.get_val('propmodel.inverter2.elec_power_out', units='W'),
+                          np.zeros(11), tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.motor2.shaft_power_out', units='W'),
+                          np.zeros(11), tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.gearbox2.shaft_power_out', units='W'),
+                          np.zeros(11), tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.prop2.thrust', units='N'),
+                          np.zeros(11), tolerance=1e-6)
+        # test the balancer
+        assert_near_equal(prob.get_val('propmodel.addfuel.rectifiers_elec_power_out', units='kW'),
+                          prob.get_val('propmodel.dc_bus.elec_power_in', units='kW'), tolerance=1e-6)
+        prob.model.list_inputs(units=True,
+                               prom_name=True,
+                               shape=True,
+                               hierarchical=False,
+                               print_arrays=True)
+
+        # show outputs
+        prob.model.list_outputs(implicit=True,
+                                explicit=True,
+                                prom_name=True,
+                                units=True,
+                                shape=True,
+                                bounds=False,
+                                residuals=False,
+                                scaling=False,
+                                hierarchical=False,
+                                print_arrays=True)
+
+
+# if __name__ == '__main__':  # run the prop system model, check n2, inputs and outputs
+#     prob = om.Problem(TurboelectricTwinPropExpandedOneEngineTestGroup(vec_size=11, engine_out=False))
+#     prob.model.nonlinear_solver = NewtonSolver(iprint=1)
+#     prob.model.nonlinear_solver = NewtonSolver(iprint=1)
+#     prob.model.options['assembled_jac_type'] = 'csc'
+#     prob.model.linear_solver = DirectSolver(assemble_jac=True)
+#     prob.model.nonlinear_solver.options['solve_subsystems'] = True
+#     prob.model.nonlinear_solver.options['maxiter'] = 10
+#     prob.model.nonlinear_solver.options['atol'] = 1e-7
+#     prob.model.nonlinear_solver.options['rtol'] = 1e-7
+#     prob.setup(check=True, force_alloc_complex=True)
+#     om.n2(prob, show_browser=True)
+#     prob.run_model()
+#
+#     prob.model.list_inputs(units=True,
+#                            prom_name=True,
+#                            shape=True,
+#                            hierarchical=False,
+#                            print_arrays=True)
+#
+#     # show outputs
+#     prob.model.list_outputs(implicit=True,
+#                             explicit=True,
+#                             prom_name=True,
+#                             units=True,
+#                             shape=True,
+#                             bounds=False,
+#                             residuals=False,
+#                             scaling=False,
+#                             hierarchical=False,
+#                             print_arrays=True)
+
+
