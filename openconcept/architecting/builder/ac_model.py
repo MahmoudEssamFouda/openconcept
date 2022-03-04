@@ -31,8 +31,10 @@ from openconcept.analysis.aerodynamics import PolarDrag
 from openconcept.utilities.math.integrals import Integrator
 from openconcept.architecting.builder.architecture import *
 from openconcept.architecting.builder.arch_group import DynamicPropulsionArchitecture
+from openconcept.analysis.performance.mission_profiles import FullMissionAnalysis
+from examples.aircraft_data.KingAirC90GT import data as acdata
 
-__all__ = ['DynamicACModel']
+__all__ = ['DynamicACModel', 'DynamicKingAirAnalysisGroup']
 
 
 class DynamicACModel(oc.IntegratorGroup):
@@ -160,26 +162,82 @@ class DynamicACModel(oc.IntegratorGroup):
                                          fuel_used={'val': np.ones((nn,)), 'units': 'kg'},
         ), promotes_inputs=['*'], promotes_outputs=['*'])
 
+class DynamicKingAirAnalysisGroup(om.Group):
+    """
+    This is an example similar to the default OpenConcept King Air, but
+    with a propulsion system defined with the propulsion system builder.
+    """
+    def setup(self):
+        # Take parameters that are not already defined in the DynamicACModel
+        # from the default King Air C90GT data dictionary
+        dv_comp = self.add_subsystem('dv_comp',  oc.DictIndepVarComp(acdata),
+                                     promotes_outputs=["*"])
+        dv_comp.add_output_from_dict('ac|aero|polar|e')
+        dv_comp.add_output_from_dict('ac|aero|polar|CD0_TO')
+        dv_comp.add_output_from_dict('ac|aero|polar|CD0_cruise')
+        dv_comp.add_output_from_dict('ac|geom|wing|S_ref')
+        dv_comp.add_output_from_dict('ac|geom|wing|AR')
+        dv_comp.add_output_from_dict('ac|weights|MTOW')
+
+        arch = PropSysArch(  # Conventional with gearbox
+            thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+                                    gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+            mech=MechPowerElements(engines=Engine('turboshaft', power_rating=560.)),
+        )
+
+        self.add_subsystem('mission', FullMissionAnalysis(
+                                num_nodes=11, aircraft_model=DynamicACModel.factory(arch),
+                            ), promotes_inputs=['*'], promotes_outputs=['*'])
+
+def setup_problem():
+    prob = om.Problem()
+    prob.model = DynamicKingAirAnalysisGroup()
+    prob.model.nonlinear_solver = om.NewtonSolver(iprint=2)
+    prob.model.nonlinear_solver.linesearch = om.BoundsEnforceLS(print_bound_enforce=False)
+    prob.model.options['assembled_jac_type'] = 'csc'
+    prob.model.linear_solver = om.DirectSolver(assemble_jac=True)
+    prob.model.nonlinear_solver.options['solve_subsystems'] = True
+    prob.model.nonlinear_solver.options['maxiter'] = 15
+    prob.model.nonlinear_solver.options['atol'] = 1e-6
+    prob.model.nonlinear_solver.options['rtol'] = 1e-6
+
+    prob.setup()
+
+    # Set required mission parameters
+    num_nodes = 11
+    prob.set_val('climb.fltcond|vs', np.ones((num_nodes,))*1500, units='ft/min')
+    prob.set_val('climb.fltcond|Ueas', np.ones((num_nodes,))*124, units='kn')
+    prob.set_val('cruise.fltcond|vs', np.ones((num_nodes,))*0.01, units='ft/min')
+    prob.set_val('cruise.fltcond|Ueas', np.ones((num_nodes,))*170, units='kn')
+    prob.set_val('descent.fltcond|vs', np.ones((num_nodes,))*(-600), units='ft/min')
+    prob.set_val('descent.fltcond|Ueas', np.ones((num_nodes,))*140, units='kn')
+
+    prob.set_val('cruise|h0',29000,units='ft')
+    prob.set_val('mission_range',1000,units='NM')
+    prob.set_val('payload',1000,units='lb')
+
+    # (optional) guesses for takeoff speeds may help with convergence
+    prob.set_val('v0v1.fltcond|Utrue',np.ones((num_nodes))*50,units='kn')
+    prob.set_val('v1vr.fltcond|Utrue',np.ones((num_nodes))*85,units='kn')
+    prob.set_val('v1v0.fltcond|Utrue',np.ones((num_nodes))*85,units='kn')
+
+    # set some airplane-specific values. The throttle edits are to derate the takeoff power of the PT6A
+    # prob['climb.OEW.structural_fudge'] = 1.67
+    prob.set_val('v0v1.throttle', np.ones((num_nodes)) * 0.75)
+    prob.set_val('v1vr.throttle', np.ones((num_nodes)) * 0.75)
+    prob.set_val('rotate.throttle', np.ones((num_nodes)) * 0.75)
+
+    return prob
 
 if __name__ == '__main__':
-    from oad_oc_link.missions.mission_profiles import MissionWithReserve
-    from openconcept.analysis.performance.mission_profiles import FullMissionAnalysis
+    prob = setup_problem()
+    prob.run_model()
+    om.n2(prob, show_browser=False)
 
-    # arch = PropSysArch(  # Conventional
-    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')]),
-    #     mech=MechPowerElements(engines=Engine('turboshaft')),
-    # )
-
-    arch = PropSysArch(  # Conventional with gearbox
-        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
-                                 gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(engines=Engine('turboshaft')),
-    )
-
-    prob = om.Problem()
-    prob.model = grp = om.Group()
-    grp.add_subsystem('mission', FullMissionAnalysis(
-        num_nodes=11, aircraft_model=DynamicACModel.factory(arch),
-    ), promotes_inputs=['*'], promotes_outputs=['*'])
-    prob.setup()
-    om.n2(prob, show_browser=True)
+    # Print some results
+    vars_list = ['ac|weights|MTOW','descent.fuel_used_final','rotate.range_final']
+    units = ['lb','lb','ft']
+    nice_print_names = ['MTOW', 'Fuel used', 'TOFL (over 35ft obstacle)']
+    print("=======================================================================")
+    for i, thing in enumerate(vars_list):
+        print(nice_print_names[i]+': '+str(prob.get_val(thing,units=units[i])[0])+' '+units[i])
