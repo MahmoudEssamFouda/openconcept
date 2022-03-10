@@ -50,7 +50,7 @@ class Engine(ArchElement):
 
     power_rating: float = 260.  # kW
 
-    specific_weight: float = .14  # kg/kW
+    specific_weight: float = .14/1e3  # kg/kW
     base_weight: float = 104  # kg
     psfc: float = .6  # kg/W/s
 
