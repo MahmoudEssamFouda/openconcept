@@ -188,8 +188,41 @@ class DynamicKingAirAnalysisGroup(om.Group):
         self.add_subsystem('mission', FullMissionAnalysis(
                                 num_nodes=11, aircraft_model=DynamicACModel.factory(arch),
                             ), promotes_inputs=['*'], promotes_outputs=['*'])
+        
+        # Compute OEW using the original aircraft OEW, original propulsion
+        # system weight, and current propulsion system weight
+        self.add_subsystem(
+            'OEW_calc', oc.AddSubtractComp(output_name='OEW', input_names=['OEW_orig', 'W_prop_orig', 'W_prop'], units='kg',
+                                         scaling_factors=[1, -1, 1]),
+            promotes_outputs=[('OEW', 'ac|weights|OEW')])
+        self.set_input_defaults('OEW_calc.OEW_orig', 7000., units='lb')
+        self.set_input_defaults('OEW_calc.W_prop_orig', 444.873, units='kg')
+        self.connect('cruise.propulsion_system_weight', 'OEW_calc.W_prop')
+        
+        # Compute MTOW - fuel burn - ZFW (OEW and payload) residual to be used as a constraint in the
+        # optimization problem (> 0) when MTOW is a design variable
+        self.add_subsystem(
+            'TOW_res', oc.AddSubtractComp(output_name='residual', input_names=['MTOW', 'fuel_used', 'OEW', 'payload'], units='kg',
+                                         scaling_factors=[1, -1, -1, -1]),
+            promotes_inputs=[('MTOW', 'ac|weights|MTOW'), ('OEW', 'ac|weights|OEW'), 'payload'])
+        self.connect('descent.fuel_used_final', 'TOW_res.fuel_used')
 
-def setup_problem():
+        # Promote propulsion system variables that are used in the optimization problem as DVs
+        segments = ['v0v1', 'v1vr', 'rotate', 'v1v0', 'engineoutclimb', 'climb', 'cruise', 'descent']
+        var_promote = [(['propmodel.mech.mech1.rating', 'propmodel.mech.mech2.rating'], 'ac|propulsion|engine|rating'),
+                       (['propmodel.thrust1.diameter', 'propmodel.thrust2.diameter'], 'ac|propulsion|propeller|diameter')]
+        promotes_list = []
+        for segment in segments:
+            for var in var_promote:
+                for abs_var in var[0]:
+                    promotes_list.append((f"{segment}.{abs_var}", var[1]))
+        self.promotes('mission', inputs=promotes_list)
+
+
+def opt_prob():
+    """
+    Optimization problem definition. Can be used for analyses too.
+    """
     prob = om.Problem()
     prob.model = DynamicKingAirAnalysisGroup()
     prob.model.nonlinear_solver = om.NewtonSolver(iprint=2)
@@ -201,6 +234,31 @@ def setup_problem():
     prob.model.nonlinear_solver.options['atol'] = 1e-6
     prob.model.nonlinear_solver.options['rtol'] = 1e-6
 
+    # setup the optimization
+    prob.driver = om.pyOptSparseDriver()
+    prob.driver.options['optimizer'] = 'SNOPT'
+    prob.driver.opt_settings['tol'] = 1e-8
+    prob.driver.options['debug_print'] = ['objs', 'desvars', 'nl_cons']
+
+    prob.model.add_design_var('ac|weights|MTOW', lower=2e3, ref=5e3)
+    prob.model.add_design_var('ac|propulsion|engine|rating', lower=100., upper=1000.)
+    # prob.model.add_design_var('ac|propulsion|propeller|diameter', lower=2.2)
+    prob.model.add_objective('descent.fuel_used_final')
+
+    # segments = ['v0v1', 'v1vr', 'rotate', 'v1v0', 'engineoutclimb', 'climb', 'cruise', 'descent']
+    segments = ['climb', 'cruise', 'descent']
+    for segment in segments:
+        prob.model.add_constraint(f"{segment}.propmodel.mech.mech1.turboshaft.throttle", lower=0., upper=1.)
+        prob.model.add_constraint(f"{segment}.propmodel.mech.mech2.turboshaft.throttle", lower=0., upper=1.)
+        prob.model.add_constraint(f"{segment}.propmodel.mech.mech1.turboshaft.component_sizing_margin", upper=1.)
+        prob.model.add_constraint(f"{segment}.propmodel.mech.mech2.turboshaft.component_sizing_margin", upper=1.)
+    prob.model.add_constraint('TOW_res.residual', lower=0.)
+    prob.model.add_constraint('bfl.distance_continue', upper=4452., units='ft')
+
+    return prob
+
+def setup_problem():
+    prob = opt_prob()
     prob.setup()
 
     # Set required mission parameters
@@ -231,7 +289,8 @@ def setup_problem():
 
 if __name__ == '__main__':
     prob = setup_problem()
-    prob.run_model()
+    # prob.run_model()
+    prob.run_driver()
     om.n2(prob, show_browser=False)
 
     # Print some results
