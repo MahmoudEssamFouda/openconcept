@@ -32,7 +32,7 @@ from openconcept.utilities.math.integrals import Integrator
 from openconcept.architecting.builder.architecture import *
 from openconcept.architecting.builder.arch_group import DynamicPropulsionArchitecture
 
-__all__ = ['DynamicACModel', 'DynamicKingAirAnalysisGroup']
+__all__ = ['DynamicACModel']
 
 
 class DynamicACModel(oc.IntegratorGroup):
