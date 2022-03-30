@@ -65,7 +65,7 @@ class DynamicConventionalTwinTurbopropTestGroup(om.Group):
             mission_prms.add_output('propulsor_active', val=np.ones(nn) * 1.0)
 
         # define propulsion system
-        propulsion_promotes_outputs = ['propulsion_system_weight', 'fuel_flow', 'thrust']
+        propulsion_promotes_outputs = ['propulsion_system_weight', 'fuel_flow', 'thrust', 'SOC']
         propulsion_promotes_inputs = ["fltcond|*", "throttle", "propulsor_active", 'duration', 'prop|rpm']
 
         self.add_subsystem('propmodel', DynamicPropulsionArchitecture(num_nodes=nn, architecture=arch),
@@ -79,10 +79,12 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
             thrust=ThrustGenElements(
                 propellers=[
                     Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
-                    Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
+                    Propeller(name='prop2', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
                 ],
                 gearboxes=[
-                    Gearbox('gearbox1'), Gearbox('gearbox2')]),
+                    Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
+                ]
+            ),
             mech=MechPowerElements(
                 engines=Engine(
                     name='turboshaft', power_rating=850 * 0.7457, specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
@@ -91,7 +93,7 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
         )
         prob = om.Problem(DynamicConventionalTwinTurbopropTestGroup(vec_size=11, architecture=arch, engine_out=False))
         prob.setup(check=True, force_alloc_complex=True)
-        # om.n2(prob, show_browser=True)
+        om.n2(prob, show_browser=True)
         prob.run_model()
 
         assert_near_equal(prob.get_val('fuel_flow', units='kg/s'),
@@ -136,3 +138,78 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
                                 scaling=False,
                                 hierarchical=False,
                                 print_arrays=True)
+
+    def test_nondefault_settings(self):  # test one engine inoperative case
+        arch = PropSysArch(  # Conventional with gearbox
+            thrust=ThrustGenElements(
+                propellers=[
+                    Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
+                    Propeller(name='prop2', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
+                ],
+                gearboxes=[
+                    Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
+                ]
+            ),
+            mech=MechPowerElements(
+                engines=Engine(
+                    name='turboshaft', power_rating=850 * 0.7457, specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
+                    output_rpm=6000)
+            ),
+        )
+        prob = om.Problem(DynamicConventionalTwinTurbopropTestGroup(vec_size=11, architecture=arch, engine_out=True))
+        prob.setup(check=True, force_alloc_complex=True)
+        om.n2(prob, show_browser=True)
+        prob.run_model()
+
+        # check fuel flow is half, only one engine is active
+        assert_near_equal(prob.get_val('fuel_flow', units='kg/s'),
+                          1 * np.ones(11) * 0.9 * 850 * 745.7 * 0.6 * 1.68965774e-7, tolerance=1e-6)
+
+        # check weight components and sum
+        assert_near_equal(prob.get_val('propmodel.mech.mech1.turboshaft.component_weight', units='kg'),
+                          850 * 745.7 * 0.14 / 1000 + 104, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.thrust1.prop1.component_weight', units='lbm'),
+                          0.108 * (2.3 * 3.28084 * 850 * (4 ** 0.5)) ** 0.782, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.thrust1.gearbox1.component_weight', units='kg'),
+                          26 * ((850 * 0.7457) ** 0.76) * (6000 ** 0.13) / (1900 ** 0.89), tolerance=1e-6)
+        # 1 m = 3.28084 ft
+        assert_near_equal(prob.get_val('propulsion_system_weight', units='kg'),
+                          2 * (850 * 745.7 * 0.14 / 1000 + 104) +
+                          2 * 0.453592 * (0.108 * (2.3 * 3.28084 * 850 * (4 ** 0.5)) ** 0.782) +
+                          2 * (26 * ((850 * 0.7457) ** 0.76) * (6000 ** 0.13) / (1900 ** 0.89)), tolerance=1e-6)
+
+        # # check thrust is half, only one engine is active
+        # gearbox efficiency with these parameters = 0.9875942790377175
+        # air density = 0.475448
+        # prop efficiency based on forward flight map at these flight conditions = 0.78457275
+        assert_near_equal(prob.get_val('thrust', units='N'),
+                          (1 * np.ones(11) * (0.9875942790377175 * 0.9 * 850 * 745.7 /
+                                              (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.78457275 /
+                           (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4, tolerance=1e-6)
+
+        # check shaft power output and thrust of inactive components
+        assert_near_equal(prob.get_val('propmodel.mech.mech2.turboshaft.shaft_power_out', units='W'),
+                          np.ones(11) * 0.0, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.thrust2.gearbox2.shaft_power_out', units='W'),
+                          np.ones(11) * 0.0, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.thrust2.thrust', units='N'),
+                          np.ones(11) * 0.0, tolerance=1e-6)
+
+        prob.model.list_inputs(units=True,
+                               prom_name=True,
+                               shape=True,
+                               hierarchical=False,
+                               print_arrays=True)
+
+        # show outputs
+        prob.model.list_outputs(implicit=True,
+                                explicit=True,
+                                prom_name=True,
+                                units=True,
+                                shape=True,
+                                bounds=False,
+                                residuals=False,
+                                scaling=False,
+                                hierarchical=False,
+                                print_arrays=True)
+
