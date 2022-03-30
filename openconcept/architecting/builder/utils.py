@@ -50,7 +50,7 @@ def create_output_sum(group: om.Group, output: str, inputs: List[str], units: st
         ], **kwargs), promotes_outputs=[output])
     else:
         comp = group.add_subsystem(sub_name, om.AddSubtractComp(output_name=output, input_names=sum_params, units=units,
-                                                                length=n), promotes_outputs=[output])
+                                                                vec_size=n), promotes_outputs=[output])
 
     for i, param in enumerate(sum_params):
         group.connect(inputs[i], sub_name + '.' + param)
@@ -137,15 +137,15 @@ if __name__ == "__main__":  # test ExpandComponent and ScalifyComponent
     nn = 11  # vector size
     model = om.Group()
     model.add_subsystem('multiply',
-                        om.ExecComp('f_xy = x * y', f_xy={'units': 'm/s'}, x={'units': 'm/s'}, y={'units': 'm/s'}),
+                        om.ExecComp('f_xy = x * y', f_xy={'units': 'm*m'}, x={'units': 'm'}, y={'units': 'm'}),
                         promotes_outputs=['*'])
 
     model.add_subsystem('expand', ExpandComponent(vars=[
-        ('f_xy', 'f_xy_vector', nn, 'm/s'),
+        ('f_xy', 'f_xy_vector', nn, 'm*m'),
     ]), promotes_inputs=['*'], promotes_outputs=['*'])
 
     model.add_subsystem('scalify', ScalifyComponent(vars=[
-        ('f_xy_vector', 'f_xy_scalar', nn, 'm/s'),
+        ('f_xy_vector', 'f_xy_scalar', nn, 'm*m'),
     ]), promotes_inputs=['*'])
 
     prob = om.Problem(model)

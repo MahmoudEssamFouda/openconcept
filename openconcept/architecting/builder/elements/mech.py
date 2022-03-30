@@ -44,15 +44,17 @@ FUEL_FLOW_OUTPUT = 'fuel_flow'
 ELECTRIC_POWER_OUTPUT = 'motors_elec_power'
 
 
+
 @dataclass(frozen=False)
 class Engine(ArchElement):
     """Conventional turboshaft engine."""
 
     power_rating: float = 260.  # kW
 
-    specific_weight: float = .14  # kg/kW
+    specific_weight: float = .14/1000  # kg/kW
     base_weight: float = 104  # kg
     psfc: float = .6  # kg/W/s
+    output_rpm: float = 6000  # rpm
 
 
 @dataclass(frozen=False)
@@ -61,6 +63,7 @@ class Motor(ArchElement):
 
     power_rating: float = 260.  # kW
     efficiency: float = .97
+    output_rpm: float = 5500  # rpm
 
 
 @dataclass(frozen=False)
@@ -130,6 +133,7 @@ class MechPowerElements(ArchSubSystem):
             # Create group for mechanical power generation components for this specific thrust group
             mech_thrust_group: om.Group = mech_group.add_subsystem('mech%d' % (i+1,), om.Group())
             shaft_power_out_param = None
+            shaft_speed_out_param = None
             throttle_param = None
 
             # Add turboshaft engine
@@ -137,6 +141,7 @@ class MechPowerElements(ArchSubSystem):
                 # Define design params
                 _, eng_input_map = collect_inputs(mech_thrust_group, [
                     ('rating', 'kW', engine.power_rating),
+                    ('output_rpm', 'rpm', engine.output_rpm),
                 ])
 
                 # Add engine component
@@ -148,6 +153,8 @@ class MechPowerElements(ArchSubSystem):
                 weight_outputs += ['.'.join([mech_thrust_group.name, eng.name, 'component_weight'])]
 
                 shaft_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, eng.name, 'shaft_power_out'])
+                shaft_speed_out_param = '.'.join([mech_group.name, mech_thrust_group.name, eng_input_map['output_rpm']])
+                rated_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, eng_input_map['rating']])
                 throttle_param = '.'.join([mech_thrust_group.name, eng.name, 'throttle'])
 
                 mech_thrust_group.connect(eng_input_map['rating'], eng.name+'.shaft_power_rating')
@@ -178,6 +185,8 @@ class MechPowerElements(ArchSubSystem):
             if shaft_power_out_param is None:
                 raise RuntimeError('No shaft power generated for thrust group %d!' % (i+1,))
             arch.connect(shaft_power_out_param, thrust_group.name+'.'+SHAFT_POWER_INPUT)
+            arch.connect(shaft_speed_out_param, thrust_group.name + '.' + SHAFT_SPEED_INPUT)
+            arch.connect(rated_power_out_param, thrust_group.name + '.' + RATED_POWER_INPUT)
 
         # Calculate output sums
         create_output_sum(mech_group, FUEL_FLOW_OUTPUT, fuel_flow_outputs, 'kg/s', n=nn)
