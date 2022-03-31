@@ -34,9 +34,9 @@ from openconcept.architecting.builder.architecture import *
 from openconcept.architecting.builder.arch_group import DynamicPropulsionArchitecture
 
 
-class DynamicConventionalTwinTurbopropTestGroup(om.Group):
+class DynamicElectricTwinTurbopropTestGroup(om.Group):
     """
-    Test the dynamic conventional Twin turboprop propulsion system
+    Test the dynamic Electric Twin turboprop propulsion system
     """
 
     def initialize(self):
@@ -73,9 +73,9 @@ class DynamicConventionalTwinTurbopropTestGroup(om.Group):
                            promotes_outputs=propulsion_promotes_outputs)
 
 
-class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
+class DynamicElectricTwinTurbopropTestCase(unittest.TestCase):
     def test_default_settings(self):  # test all engines active
-        arch = PropSysArch(  # Conventional with gearbox
+        arch = PropSysArch(  # all Electric with gearbox and inverter
             thrust=ThrustGenElements(
                 propellers=[
                     Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
@@ -85,41 +85,56 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
-            mech=MechPowerElements(
-                engines=Engine(
-                    name='turboshaft', power_rating=850 * 0.7457, specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
-                    output_rpm=6000)
-            ),
+            mech=MechPowerElements(motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
+                                                specific_weight=1. / 5000, base_weight=0.,
+                                                cost_inc=100.0 / 745.0, cost_base=1.),
+                                   inverters=Inverter(name='inverter', efficiency=0.97,
+                                                      specific_weight=1. / (10 * 1000), base_weight=0.,
+                                                      cost_inc=100.0 / 745.0, cost_base=1.)),
+
+            electric=ElectricPowerElements(dc_bus=DCBus(name='elec_bus', efficiency=0.99),
+                                           batteries=Batteries(name='bat_pack', weight=1000, efficiency=0.97,
+                                                               specific_power=5000, specific_energy=300,
+                                                               cost_inc=50., cost_base=1.)),
         )
-        prob = om.Problem(DynamicConventionalTwinTurbopropTestGroup(vec_size=11, architecture=arch, engine_out=False))
+        prob = om.Problem(DynamicElectricTwinTurbopropTestGroup(vec_size=11, architecture=arch, engine_out=False))
         prob.setup(check=True, force_alloc_complex=True)
         # om.n2(prob, show_browser=True)
         prob.run_model()
 
-        assert_near_equal(prob.get_val('fuel_flow', units='kg/s'),
-                          2 * np.ones(11) * 0.9 * 850 * 745.7 * 0.6 * 1.68965774e-7, tolerance=1e-6)
-        # check weight components and sum
-        assert_near_equal(prob.get_val('propmodel.mech.mech1.turboshaft.component_weight', units='kg'),
-                          850 * 745.7 * 0.14 / 1000 + 104, tolerance=1e-6)
+        assert_near_equal(prob.get_val('fuel_flow', units='kg/s'), np.zeros(11), tolerance=1e-6)
+        # # check weight components and sum
+        assert_near_equal(prob.get_val('propmodel.elec.bat_pack.battery_weight', units='kg'), 1000, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.mech.mech1.elec_motor.component_weight', units='kg'),
+                          240 * 1000 * 1. / 5000 + 0., tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.mech.mech1.inverter.component_weight', units='kg'),
+                          240 * 1000 * 1. / (10 * 1000) + 0., tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.thrust1.prop1.component_weight', units='lbm'),
-                          0.108 * (2.3 * 3.28084 * 850 * (4 ** 0.5)) ** 0.782, tolerance=1e-6)
+                          0.108 * (2.3 * 3.28084 * 240 * 1.34102 * (4 ** 0.5)) ** 0.782, tolerance=1e-3)
         assert_near_equal(prob.get_val('propmodel.thrust1.gearbox1.component_weight', units='kg'),
-                          26 * ((850 * 0.7457) ** 0.76) * (6000 ** 0.13) / (1900 ** 0.89), tolerance=1e-6)
+                          26 * (240 ** 0.76) * (5500 ** 0.13) / (1900 ** 0.89), tolerance=1e-6)
         # 1 m = 3.28084 ft
         assert_near_equal(prob.get_val('propulsion_system_weight', units='kg'),
-                          2 * (850 * 745.7 * 0.14 / 1000 + 104) +
-                          2 * 0.453592 * (0.108 * (2.3 * 3.28084 * 850 * (4 ** 0.5)) ** 0.782) +
-                          2 * (26 * ((850 * 0.7457) ** 0.76) * (6000 ** 0.13) / (1900 ** 0.89)), tolerance=1e-6)
+                          1000 +
+                          2 * (240 * 1000 * 1. / 5000 + 0) +
+                          2 * (240 * 1000 * 1. / (10 * 1000) + 0.) +
+                          2 * 0.453592 * (0.108 * (2.3 * 3.28084 * 240 * 1.34102 * (4 ** 0.5)) ** 0.782) +
+                          2 * (26 * (240 ** 0.76) * (5500 ** 0.13) / (1900 ** 0.89)), tolerance=1e-6)
+
         # check thrust output
-        # gearbox efficiency with these parameters = 0.9875942790377175
+        # gearbox efficiency with these parameters = 0.9871882644426422
         # air density = 0.475448
-        # prop efficiency based on forward flight map at these flight conditions = 0.78457275
+        # prop efficiency based on forward flight map at these flight conditions = 0.78129124
         assert_near_equal(prob.get_val('thrust', units='N'),
-                          (2 * np.ones(11) * (0.9875942790377175 * 0.9 * 850 * 745.7 /
-                                              (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.78457275 /
+                          (2 * np.ones(11) * (0.9871882644426422 * 0.9 * 240 * 1000 * 0.97 /
+                                              (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.78129124 /
                            (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4, tolerance=1e-6)
-        assert_near_equal(prob.get_val('propmodel.SOC', units=None),
-                          np.zeros(11, ), tolerance=1e-6)  # no battery
+
+        # check SOC after duration
+        elec_load_test = ((2 * 0.9 * 240 * 1000) / 0.97) / 0.99
+        dsocdt_test = -elec_load_test / (300 * 1000 * 60 * 60)
+        soc_final_test = 1 + (300 * dsocdt_test)
+        assert_near_equal(prob.get_val('SOC', units=None)[-1], soc_final_test, tolerance=1e-6)
 
         prob.model.list_inputs(units=True,
                                prom_name=True,
@@ -139,8 +154,8 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
                                 hierarchical=False,
                                 print_arrays=True)
 
-    def test_nondefault_settings(self):  # test one engine inoperative case
-        arch = PropSysArch(  # Conventional with gearbox
+    def test_nondefault_settings(self):  # test one motor inoperative
+        arch = PropSysArch(  # all Electric with gearbox and inverter
             thrust=ThrustGenElements(
                 propellers=[
                     Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
@@ -150,45 +165,61 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
-            mech=MechPowerElements(
-                engines=Engine(
-                    name='turboshaft', power_rating=850 * 0.7457, specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
-                    output_rpm=6000)
-            ),
+            mech=MechPowerElements(motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
+                                                specific_weight=1. / 5000, base_weight=0.,
+                                                cost_inc=100.0 / 745.0, cost_base=1.),
+                                   inverters=Inverter(name='inverter', efficiency=0.97,
+                                                      specific_weight=1. / (10 * 1000), base_weight=0.,
+                                                      cost_inc=100.0 / 745.0, cost_base=1.)),
+
+            electric=ElectricPowerElements(dc_bus=DCBus(name='elec_bus', efficiency=0.99),
+                                           batteries=Batteries(name='bat_pack', weight=1000, efficiency=0.97,
+                                                               specific_power=5000, specific_energy=300,
+                                                               cost_inc=50., cost_base=1.)),
         )
-        prob = om.Problem(DynamicConventionalTwinTurbopropTestGroup(vec_size=11, architecture=arch, engine_out=True))
+        prob = om.Problem(DynamicElectricTwinTurbopropTestGroup(vec_size=11, architecture=arch, engine_out=True))
         prob.setup(check=True, force_alloc_complex=True)
         # om.n2(prob, show_browser=True)
         prob.run_model()
 
-        # check fuel flow is half, only one engine is active
-        assert_near_equal(prob.get_val('fuel_flow', units='kg/s'),
-                          1 * np.ones(11) * 0.9 * 850 * 745.7 * 0.6 * 1.68965774e-7, tolerance=1e-6)
-
-        # check weight components and sum
-        assert_near_equal(prob.get_val('propmodel.mech.mech1.turboshaft.component_weight', units='kg'),
-                          850 * 745.7 * 0.14 / 1000 + 104, tolerance=1e-6)
+        assert_near_equal(prob.get_val('fuel_flow', units='kg/s'), np.zeros(11), tolerance=1e-6)
+        # # check weight components and sum
+        assert_near_equal(prob.get_val('propmodel.elec.bat_pack.battery_weight', units='kg'), 1000, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.mech.mech1.elec_motor.component_weight', units='kg'),
+                          240 * 1000 * 1. / 5000 + 0., tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.mech.mech1.inverter.component_weight', units='kg'),
+                          240 * 1000 * 1. / (10 * 1000) + 0., tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.thrust1.prop1.component_weight', units='lbm'),
-                          0.108 * (2.3 * 3.28084 * 850 * (4 ** 0.5)) ** 0.782, tolerance=1e-6)
+                          0.108 * (2.3 * 3.28084 * 240 * 1.34102 * (4 ** 0.5)) ** 0.782, tolerance=1e-3)
         assert_near_equal(prob.get_val('propmodel.thrust1.gearbox1.component_weight', units='kg'),
-                          26 * ((850 * 0.7457) ** 0.76) * (6000 ** 0.13) / (1900 ** 0.89), tolerance=1e-6)
+                          26 * (240 ** 0.76) * (5500 ** 0.13) / (1900 ** 0.89), tolerance=1e-6)
         # 1 m = 3.28084 ft
         assert_near_equal(prob.get_val('propulsion_system_weight', units='kg'),
-                          2 * (850 * 745.7 * 0.14 / 1000 + 104) +
-                          2 * 0.453592 * (0.108 * (2.3 * 3.28084 * 850 * (4 ** 0.5)) ** 0.782) +
-                          2 * (26 * ((850 * 0.7457) ** 0.76) * (6000 ** 0.13) / (1900 ** 0.89)), tolerance=1e-6)
+                          1000 +
+                          2 * (240 * 1000 * 1. / 5000 + 0) +
+                          2 * (240 * 1000 * 1. / (10 * 1000) + 0.) +
+                          2 * 0.453592 * (0.108 * (2.3 * 3.28084 * 240 * 1.34102 * (4 ** 0.5)) ** 0.782) +
+                          2 * (26 * (240 ** 0.76) * (5500 ** 0.13) / (1900 ** 0.89)), tolerance=1e-6)
 
-        # # check thrust is half, only one engine is active
-        # gearbox efficiency with these parameters = 0.9875942790377175
+        # check thrust is half, only one motor is active
+        # gearbox efficiency with these parameters = 0.9871882644426422
         # air density = 0.475448
-        # prop efficiency based on forward flight map at these flight conditions = 0.78457275
+        # prop efficiency based on forward flight map at these flight conditions = 0.78129124
         assert_near_equal(prob.get_val('thrust', units='N'),
-                          (1 * np.ones(11) * (0.9875942790377175 * 0.9 * 850 * 745.7 /
-                                              (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.78457275 /
+                          (1 * np.ones(11) * (0.9871882644426422 * 0.9 * 240 * 1000 * 0.97 /
+                                              (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.78129124 /
                            (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4, tolerance=1e-6)
 
+        # check SOC after duration
+        elec_load_test = ((1 * 0.9 * 240 * 1000) / 0.97) / 0.99  # only one elec_load
+        dsocdt_test = -elec_load_test / (300 * 1000 * 60 * 60)
+        soc_final_test = 1 + (300 * dsocdt_test)
+        assert_near_equal(prob.get_val('SOC', units=None)[-1], soc_final_test, tolerance=1e-6)
+
         # check shaft power output and thrust of inactive components
-        assert_near_equal(prob.get_val('propmodel.mech.mech2.turboshaft.shaft_power_out', units='W'),
+        assert_near_equal(prob.get_val('propmodel.mech.mech2.elec_motor.shaft_power_out', units='W'),
+                          np.ones(11) * 0.0, tolerance=1e-6)
+        assert_near_equal(prob.get_val('propmodel.mech.mech2.inverter.elec_power_in', units='W'),
                           np.ones(11) * 0.0, tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.thrust2.gearbox2.shaft_power_out', units='W'),
                           np.ones(11) * 0.0, tolerance=1e-6)
@@ -212,4 +243,3 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
                                 scaling=False,
                                 hierarchical=False,
                                 print_arrays=True)
-

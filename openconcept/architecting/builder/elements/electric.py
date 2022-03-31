@@ -51,10 +51,12 @@ class DCBus(ArchElement):
 class Batteries(ArchElement):
     """Battery pack."""
 
-    weight: float = 2000.  # kg
+    weight: float = 1000.  # kg
     specific_power: float = 5000  # W/kg
-    specific_energy: float = 300  # Wh/kg
+    specific_energy: float = 300  # W/kg
     efficiency: float = .97
+    cost_inc: float = 50.  # $ per kg
+    cost_base: float = 1.  # $ per base
 
 
 @dataclass(frozen=False)
@@ -123,7 +125,8 @@ class ElectricPowerElements(ArchSubSystem):
             bat = elec_group.add_subsystem(
                 batteries.name, SOCBattery(
                     num_nodes=nn, efficiency=batteries.efficiency, specific_power=batteries.specific_power,
-                    specific_energy=batteries.specific_power))
+                    specific_energy=batteries.specific_energy, cost_inc=batteries.cost_inc,
+                    cost_base=batteries.cost_base))
 
             weight_outputs += [bat_input_map['weight']]
             soc_outputs += [bat.name+'.SOC']

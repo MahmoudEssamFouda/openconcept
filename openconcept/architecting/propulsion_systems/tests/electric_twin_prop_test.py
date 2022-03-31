@@ -95,7 +95,7 @@ class ElectricTwinPropExpandedTestGroup(om.Group):
         dvs = self.add_subsystem('dvs', om.IndepVarComp(), promotes_outputs=['*'])
         dvs.add_output('ac|propulsion|propeller|diameter', val=2.3, units='m')
         dvs.add_output('ac|propulsion|propeller|max_speed', val=2900.0, units='rpm')
-        dvs.add_output('ac|propulsion|propeller|min_speed', val=400.0, units='rpm')
+        dvs.add_output('ac|propulsion|propeller|min_speed', val=1900.0, units='rpm')
         dvs.add_output('ac|propulsion|motor|rating', val=240, units='kW')
         dvs.add_output('ac|propulsion|motor|max_speed', val=5500.0, units='rpm')
         dvs.add_output('ac|propulsion|propeller|power_rating', val=240, units='kW')

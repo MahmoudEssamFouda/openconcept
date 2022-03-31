@@ -170,9 +170,12 @@ if __name__ == '__main__':
     # )
     #
     arch = PropSysArch(  # All-electric (no inverters)
-        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')]),
-        mech=MechPowerElements(motors=Motor('elec_motor'), inverters=Inverter('inverter')),
-        electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'), batteries=Batteries('bat_pack')),
+        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+                                 gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+        mech=MechPowerElements(motors=Motor('elec_motor'),
+                               inverters=Inverter('inverter')),
+        electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+                                       batteries=Batteries('bat_pack')),
     )
 
     prob = om.Problem()

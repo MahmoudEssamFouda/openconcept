@@ -63,6 +63,10 @@ class Motor(ArchElement):
 
     power_rating: float = 260.  # kW
     efficiency: float = .97
+    specific_weight: float = 1. / 5000  # kg/kW
+    base_weight: float = 0.  # kg
+    cost_inc: float = 100.0 / 745.0  # $ per watt
+    cost_base: float = 1.  # $ per base
     output_rpm: float = 5500  # rpm
 
 
@@ -187,9 +191,20 @@ class MechPowerElements(ArchSubSystem):
                     ('output_rpm', 'rpm', motor.output_rpm),
                 ], name="motor_in_collect")
 
+                # add one motor inoperative case for prop systems with two or more motors
+                if i == 1:  # check if no of motors >=2, if yes, add a failed motor component to mech2 group
+                    failedmotor = ElementMultiplyDivideComp()
+                    failedmotor.add_equation('motor2throttle',
+                                              input_names=['throttle_vec', 'propulsor_active_flag'], vec_size=nn)
+                    failedmotor = mech_thrust_group.add_subsystem('failedmotor', failedmotor)
+                    mech_group.connect(input_map[ACTIVE_INPUT],
+                                       mech_thrust_group.name + '.failedmotor' + '.propulsor_active_flag')
+
                 # Add electric motor component
                 mot = mech_thrust_group.add_subsystem(
-                    motor.name, SimpleMotor(efficiency=motor.efficiency, num_nodes=nn))
+                    motor.name, SimpleMotor(efficiency=motor.efficiency, num_nodes=nn, weight_inc=motor.specific_weight,
+                                            weight_base=motor.base_weight, cost_inc=motor.cost_inc,
+                                            cost_base=motor.cost_base))
 
                 weight_outputs += ['.'.join([mech_thrust_group.name, mot.name, 'component_weight'])]
                 if inverter is None:  # override if inverter is added
@@ -198,9 +213,15 @@ class MechPowerElements(ArchSubSystem):
                 shaft_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot.name, 'shaft_power_out'])
                 shaft_speed_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot_input_map['output_rpm']])
                 rated_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot_input_map['rating']])
-                throttle_param = '.'.join([mech_thrust_group.name, mot.name, 'throttle'])
 
                 mech_thrust_group.connect(mot_input_map['rating'], mot.name + '.elec_power_rating')
+
+                # define throttle parameter in case of one motor inoperative OEI or Normal
+                if i == 1:  # in the case of OEI, for mech2, connect throttle to failedengine
+                    throttle_param = '.'.join([mech_thrust_group.name, 'failedmotor', 'throttle_vec'])
+                    mech_thrust_group.connect('failedmotor' + '.motor2throttle', mot.name + '.throttle')
+                else:  # Normal conditions
+                    throttle_param = '.'.join([mech_thrust_group.name, mot.name, 'throttle'])
 
             if inverter is not None:
                 if motor is None:
