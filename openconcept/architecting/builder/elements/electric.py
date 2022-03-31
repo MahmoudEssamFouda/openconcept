@@ -33,11 +33,18 @@ from openconcept.architecting.builder.utils import *
 from openconcept.architecting.builder.elements.mech import *
 
 from openconcept.components.battery import SOCBattery
+from openconcept.components import SimpleTurboshaft, SimpleGenerator, SimpleDCBusInverted, SimpleConverter, PowerSplit
 
-__all__ = ['ElectricPowerElements', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'EngineChain', 'FUEL_FLOW_OUTPUT',
-           'SOC_OUTPUT']
+__all__ = ['ElectricPowerElements', 'DCBus', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'EngineChain',
+           'FUEL_FLOW_OUTPUT', 'SOC_OUTPUT']
 
 SOC_OUTPUT = 'SOC'
+
+
+@dataclass(frozen=False)
+class DCBus(ArchElement):
+    """electric dc bus"""
+    efficiency: float = 0.99  #
 
 
 @dataclass(frozen=False)
@@ -69,6 +76,7 @@ EngineChain = Tuple[Engine, Generator, Rectifier]
 class ElectricPowerElements(ArchSubSystem):
     """Electrical power generation elements in the propulsion system architecture."""
 
+    dc_bus: Optional[DCBus] = None
     batteries: Batteries = None
     engines: List[EngineChain] = None
 
@@ -81,6 +89,7 @@ class ElectricPowerElements(ArchSubSystem):
         """
 
         # Prepare components
+        dc_bus = self.dc_bus
         batteries = self.batteries
         engine_chains = self.engines
 
@@ -92,12 +101,16 @@ class ElectricPowerElements(ArchSubSystem):
             (DURATION_INPUT, 's', 1.),
             (FLTCOND_RHO_INPUT, 'kg/m**3', np.tile(1.225, nn)),
             (FLTCOND_TAS_INPUT, 'm/s', np.tile(100., nn)),
-        ])
+        ], name="elec_in_collect")
 
         elec_load_input = None
         fuel_flow_outputs = []
         weight_outputs = []
         soc_outputs = []
+
+        if dc_bus is not None:
+            bus = elec_group.add_subsystem(dc_bus.name, SimpleDCBusInverted(num_nodes=nn, efficiency=dc_bus.efficiency))
+            elec_load_input = dc_bus.name+'.elec_power_out'
 
         # Create and add batteries
         if batteries is not None:
@@ -115,7 +128,10 @@ class ElectricPowerElements(ArchSubSystem):
             weight_outputs += [bat_input_map['weight']]
             soc_outputs += [bat.name+'.SOC']
 
-            elec_load_input = bat.name+'.elec_load'
+            if dc_bus is None:
+                elec_load_input = bat.name+'.elec_load'
+            else:
+                elec_group.connect(dc_bus.name+'.elec_power_in', bat.name+'.elec_load')
 
             elec_group.connect(bat_input_map['weight'], bat.name+'.battery_weight')
             elec_group.connect(input_map[DURATION_INPUT], bat.name+'.duration')
