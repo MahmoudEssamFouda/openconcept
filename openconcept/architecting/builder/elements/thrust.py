@@ -107,8 +107,11 @@ class ThrustGenElements(ArchSubSystem):
                 (SHAFT_SPEED_INPUT, 'rpm', 1.),  # needed for gearbox component
                 (RATED_POWER_INPUT, 'kW', 1.),  # needed to size gearbox and propeller
 
+                # propeller inputs
                 ('diameter', 'm', prop.diameter),
-                # ('power', 'kW', prop.power_rating),
+                # ('power', 'kW', prop.power_rating), passed from mech group
+
+                # gearbox inputs: there are no inputs
             ])
             order = [input_comp.name]
 

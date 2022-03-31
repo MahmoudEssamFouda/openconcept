@@ -163,17 +163,17 @@ if __name__ == '__main__':
     #     mech=MechPowerElements(engines=Engine('turboshaft')),
     # )
     #
-    arch = PropSysArch(  # Conventional with gearbox
-        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
-                                 gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(engines=Engine('turboshaft')),
-    )
-    #
-    # arch = PropSysArch(  # All-electric (no inverters)
-    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')]),
-    #     mech=MechPowerElements(motors=Motor('elec_motor')),
-    #     electric=ElectricPowerElements(batteries=Batteries('bat_pack')),
+    # arch = PropSysArch(  # Conventional with gearbox
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(engines=Engine('turboshaft')),
     # )
+    #
+    arch = PropSysArch(  # All-electric (no inverters)
+        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')]),
+        mech=MechPowerElements(motors=Motor('elec_motor')),
+        electric=ElectricPowerElements(batteries=Batteries('bat_pack')),
+    )
 
     prob = om.Problem()
     prob.model = DynamicPropulsionArchitecture(num_nodes=11, architecture=arch)

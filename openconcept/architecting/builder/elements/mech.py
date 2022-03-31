@@ -127,8 +127,6 @@ class MechPowerElements(ArchSubSystem):
 
             if engine is not None and motor is not None:  # Temporary!!
                 raise NotImplementedError('Hybrid is not implemented yet!')
-            if inverter is not None:
-                raise NotImplementedError('Inverters not supported yet!')
 
             # Create group for mechanical power generation components for this specific thrust group
             mech_thrust_group: om.Group = mech_group.add_subsystem('mech%d' % (i + 1,), om.Group())
@@ -180,6 +178,7 @@ class MechPowerElements(ArchSubSystem):
                 # Defined design params
                 _, mot_input_map = collect_inputs(mech_thrust_group, [
                     ('rating', 'kW', motor.power_rating),
+                    ('output_rpm', 'rpm', motor.output_rpm),
                 ])
 
                 # Add electric motor component
@@ -190,9 +189,17 @@ class MechPowerElements(ArchSubSystem):
                 electric_load_outputs += ['.'.join([mech_thrust_group.name, mot.name, 'elec_load'])]
 
                 shaft_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot.name, 'shaft_power_out'])
+                shaft_speed_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot_input_map['output_rpm']])
+                rated_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot_input_map['rating']])
                 throttle_param = '.'.join([mech_thrust_group.name, mot.name, 'throttle'])
 
                 mech_thrust_group.connect(mot_input_map['rating'], mot.name + '.elec_power_rating')
+
+            if inverter is not None:
+                raise NotImplementedError('Inverters not supported yet!')
+
+            if motor is None and inverter is not None:
+                raise RuntimeError('Inverter is added but no Motor!')
 
             # Connect throttle input
             mech_group.connect(input_map[THROTTLE_INPUT], throttle_param)
