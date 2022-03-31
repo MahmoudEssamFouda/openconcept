@@ -32,7 +32,7 @@ from openconcept.architecting.builder.defs import *
 from openconcept.architecting.builder.utils import *
 from openconcept.architecting.builder.elements.thrust import *
 
-from openconcept.components import SimpleTurboshaft, SimpleMotor
+from openconcept.components import SimpleTurboshaft, SimpleMotor, SimpleConverterInverted
 from openconcept.utilities.math import AddSubtractComp, ElementMultiplyDivideComp
 
 __all__ = ['MechPowerElements', 'Engine', 'Motor', 'Inverter', 'FUEL_FLOW_OUTPUT', 'ELECTRIC_POWER_OUTPUT',
@@ -69,6 +69,12 @@ class Motor(ArchElement):
 @dataclass(frozen=False)
 class Inverter(ArchElement):
     """A DC to AC inverter."""
+    efficiency: float = 0.97
+    # power_rating: float = 260.  # kW, passed from electric motor
+    specific_weight: float = 1. / (10 * 1000)  # kg/kW
+    base_weight: float = 0.  # kg
+    cost_inc: float = 100.0 / 745.0  # $ per watt
+    cost_base: float = 1.  # $ per base
 
 
 @dataclass(frozen=False)
@@ -114,7 +120,7 @@ class MechPowerElements(ArchSubSystem):
             (ACTIVE_INPUT, None, np.tile(1., nn)),
             (FLTCOND_RHO_INPUT, 'kg/m**3', np.tile(1.225, nn)),
             (FLTCOND_TAS_INPUT, 'm/s', np.tile(100., nn)),
-        ])
+        ], name="mech_in_collect")
 
         # Create and add components
         fuel_flow_outputs = []
@@ -141,7 +147,7 @@ class MechPowerElements(ArchSubSystem):
                 _, eng_input_map = collect_inputs(mech_thrust_group, [
                     ('rating', 'kW', engine.power_rating),
                     ('output_rpm', 'rpm', engine.output_rpm),
-                ])
+                ], name="eng_in_collect")
 
                 # add one engine inoperative case for prop systems with two or more engines
                 if i == 1:  # check if no of engines >=2, if yes, add a failed engine component to mech2 group
@@ -150,7 +156,7 @@ class MechPowerElements(ArchSubSystem):
                                               input_names=['throttle_vec', 'propulsor_active_flag'], vec_size=nn)
                     failedengine = mech_thrust_group.add_subsystem('failedengine', failedengine)
                     mech_group.connect(input_map[ACTIVE_INPUT],
-                                       mech_thrust_group.name+'.failedengine' + '.propulsor_active_flag')
+                                       mech_thrust_group.name + '.failedengine' + '.propulsor_active_flag')
 
                 # Add engine component
                 eng = mech_thrust_group.add_subsystem(
@@ -179,14 +185,15 @@ class MechPowerElements(ArchSubSystem):
                 _, mot_input_map = collect_inputs(mech_thrust_group, [
                     ('rating', 'kW', motor.power_rating),
                     ('output_rpm', 'rpm', motor.output_rpm),
-                ])
+                ], name="motor_in_collect")
 
                 # Add electric motor component
                 mot = mech_thrust_group.add_subsystem(
                     motor.name, SimpleMotor(efficiency=motor.efficiency, num_nodes=nn))
 
                 weight_outputs += ['.'.join([mech_thrust_group.name, mot.name, 'component_weight'])]
-                electric_load_outputs += ['.'.join([mech_thrust_group.name, mot.name, 'elec_load'])]
+                if inverter is None:  # override if inverter is added
+                    electric_load_outputs += ['.'.join([mech_thrust_group.name, mot.name, 'elec_load'])]
 
                 shaft_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot.name, 'shaft_power_out'])
                 shaft_speed_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot_input_map['output_rpm']])
@@ -196,10 +203,20 @@ class MechPowerElements(ArchSubSystem):
                 mech_thrust_group.connect(mot_input_map['rating'], mot.name + '.elec_power_rating')
 
             if inverter is not None:
-                raise NotImplementedError('Inverters not supported yet!')
+                if motor is None:
+                    raise RuntimeError('Inverter is added but no Motor!')
+                else:
+                    # inverter does not need in_collect, it has no inputs, only options
+                    invert = mech_thrust_group.add_subsystem(
+                        inverter.name, SimpleConverterInverted(
+                            num_nodes=nn, efficiency=inverter.efficiency, weight_inc=inverter.specific_weight,
+                            weight_base=inverter.base_weight, cost_inc=inverter.cost_inc, cost_base=inverter.cost_base))
 
-            if motor is None and inverter is not None:
-                raise RuntimeError('Inverter is added but no Motor!')
+                    weight_outputs += ['.'.join([mech_thrust_group.name, invert.name, 'component_weight'])]
+                    electric_load_outputs += ['.'.join([mech_thrust_group.name, invert.name, 'elec_power_in'])]
+
+                    mech_thrust_group.connect(mot_input_map['rating'], invert.name + '.elec_power_rating')
+                    mech_thrust_group.connect(mot.name + '.elec_load', invert.name + '.elec_power_out')
 
             # Connect throttle input
             mech_group.connect(input_map[THROTTLE_INPUT], throttle_param)

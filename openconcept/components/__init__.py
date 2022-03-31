@@ -4,3 +4,6 @@ from .motor import SimpleMotor
 from .propeller import SimplePropeller
 from .splitter import PowerSplit, FlowSplit, FlowCombine
 from .turboshaft import SimpleTurboshaft
+from .gearbox import SimpleGearbox
+from .converter import SimpleConverter, SimpleConverterInverted
+from .bus import SimpleDCBus, SimpleDCBusInverted, SimpleMechBus

@@ -112,7 +112,8 @@ class ThrustGenElements(ArchSubSystem):
                 # ('power', 'kW', prop.power_rating), passed from mech group
 
                 # gearbox inputs: there are no inputs
-            ])
+
+            ], name='thrust%d' % (i + 1,)+"_in_collect")
             order = [input_comp.name]
 
             # Create propeller

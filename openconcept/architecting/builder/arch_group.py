@@ -92,7 +92,7 @@ class DynamicPropulsionArchitecture(om.Group):
             (ACTIVE_INPUT, None, np.tile(1., nn)),
             (FLTCOND_RHO_INPUT, 'kg/m**3', np.tile(1.225, nn)),
             (FLTCOND_TAS_INPUT, 'm/s', np.tile(100., nn)),
-        ])
+        ],name="propmodel_in_collect")
         order = [input_comp.name]
 
         subsys_groups = []
@@ -171,7 +171,7 @@ if __name__ == '__main__':
     #
     arch = PropSysArch(  # All-electric (no inverters)
         thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')]),
-        mech=MechPowerElements(motors=Motor('elec_motor')),
+        mech=MechPowerElements(motors=Motor('elec_motor'), inverters=Inverter('inverter')),
         electric=ElectricPowerElements(batteries=Batteries('bat_pack')),
     )
 
