@@ -35,8 +35,8 @@ from openconcept.architecting.builder.elements.mech import *
 from openconcept.components.battery import SOCBattery
 from openconcept.components import SimpleTurboshaft, SimpleGenerator, SimpleDCBusInverted, SimpleConverter, PowerSplit
 
-__all__ = ['ElectricPowerElements', 'DCBus', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'EngineChain', 'Splitter',
-           'FUEL_FLOW_OUTPUT', 'SOC_OUTPUT']
+__all__ = ['ElectricPowerElements', 'DCBus', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'DCEngineChain',
+           'ACEngineChain', 'Splitter', 'FUEL_FLOW_OUTPUT', 'SOC_OUTPUT']
 
 SOC_OUTPUT = 'SOC'
 
@@ -79,7 +79,8 @@ class Rectifier(ArchElement):
     """An AC to DC rectifier."""
 
 
-EngineChain = Tuple[Engine, Generator, Rectifier]
+DCEngineChain = Tuple[Engine, Generator, Rectifier]
+ACEngineChain = Tuple[Engine, Generator]
 
 
 @dataclass(frozen=False)
@@ -88,8 +89,9 @@ class ElectricPowerElements(ArchSubSystem):
 
     dc_bus: Optional[DCBus] = None
     splitter: Optional[Splitter] = None
-    batteries: Batteries = None
-    engines: List[EngineChain] = None
+    batteries: Union[Batteries, List[Batteries]] = None
+    engines_dc: Union[DCEngineChain, List[DCEngineChain]] = None
+    engines_ac: Union[ACEngineChain, List[ACEngineChain]] = None
 
     def create_electric_group(self, arch: om.Group, mech_power_group: om.Group, nn: int) -> om.Group:
         """
@@ -103,7 +105,8 @@ class ElectricPowerElements(ArchSubSystem):
         dc_bus = self.dc_bus
         splitter = self.splitter
         batteries = self.batteries
-        engine_chains = self.engines
+        engine_chains_dc = self.engines_dc
+        engine_chains_ac = self.engines_ac
 
         # Create electrical power group
         elec_group: om.Group = arch.add_subsystem('elec', om.Group())
@@ -125,7 +128,23 @@ class ElectricPowerElements(ArchSubSystem):
             elec_load_input = dc_bus.name+'.elec_power_out'  # connect elec load to dc bus
 
         if splitter is not None:
-            raise NotImplementedError('splitter not implemented yet!')
+            if dc_bus is None:
+                raise RuntimeError("Currently, dc_bus is required with a splitter")
+            else:
+                if engine_chains_dc is None or batteries is None:
+                    raise RuntimeError("engines and batteries are needed with splitter")
+                else:
+                    raise NotImplementedError('Splitter not implemented yet!')
+
+        # check batteries input
+        if type(batteries) == list:
+            if len(batteries) == 1:
+                raise RuntimeError("for one Battery pack, "
+                                   "use batteries=Batteries('bat_pack') instead of [Batteries('bat_pack')]")
+            elif len(batteries) > 1:
+                raise NotImplementedError('multiple battery pack design is not implemented yet')
+            else:
+                raise RuntimeError("Battery pack list cannot be empty")
 
         # Create and add batteries
         if batteries is not None:
@@ -147,15 +166,18 @@ class ElectricPowerElements(ArchSubSystem):
             if dc_bus is None:
                 elec_load_input = bat.name+'.elec_load'  # directly connect elec load to battery
             else:
-                if splitter is None and engine_chains is None:
+                if splitter is None and engine_chains_dc is None:
                     elec_group.connect(dc_bus.name+'.elec_power_in', bat.name+'.elec_load')
 
             elec_group.connect(bat_input_map['weight'], bat.name+'.battery_weight')
             elec_group.connect(input_map[DURATION_INPUT], bat.name+'.duration')
 
         # Add conventional engine chains
-        if engine_chains is not None:
-            raise NotImplementedError('Series hybrid not implemented yet!')
+        if engine_chains_dc is not None:
+            raise NotImplementedError('Series hybrid with DC Architecture not implemented yet!')
+
+        if engine_chains_ac is not None:
+            raise NotImplementedError('AC architectures not implemented yet!')
 
         # Connect electric load
         if elec_load_input is None:
