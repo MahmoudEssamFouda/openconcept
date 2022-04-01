@@ -217,7 +217,7 @@ class MechPowerElements(ArchSubSystem):
                 mech_thrust_group.connect(mot_input_map['rating'], mot.name + '.elec_power_rating')
 
                 # define throttle parameter in case of one motor inoperative OEI or Normal
-                if i == 1:  # in the case of OEI, for mech2, connect throttle to failedengine
+                if i == 1:  # in the case of OEI, for mech2, connect throttle to failedmotor
                     throttle_param = '.'.join([mech_thrust_group.name, 'failedmotor', 'throttle_vec'])
                     mech_thrust_group.connect('failedmotor' + '.motor2throttle', mot.name + '.throttle')
                 else:  # Normal conditions

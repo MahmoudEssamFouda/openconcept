@@ -35,7 +35,7 @@ from openconcept.architecting.builder.elements.mech import *
 from openconcept.components.battery import SOCBattery
 from openconcept.components import SimpleTurboshaft, SimpleGenerator, SimpleDCBusInverted, SimpleConverter, PowerSplit
 
-__all__ = ['ElectricPowerElements', 'DCBus', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'EngineChain',
+__all__ = ['ElectricPowerElements', 'DCBus', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'EngineChain', 'Splitter',
            'FUEL_FLOW_OUTPUT', 'SOC_OUTPUT']
 
 SOC_OUTPUT = 'SOC'
@@ -45,6 +45,14 @@ SOC_OUTPUT = 'SOC'
 class DCBus(ArchElement):
     """electric dc bus"""
     efficiency: float = 0.99  #
+
+
+@dataclass(frozen=False)
+class Splitter(ArchElement):
+    """power splitter to divide a power input to two outputs A and B based on a split fraction and efficiency loss"""
+    efficiency: float = 1.0  # always keep as 1, apply required efficiency in DC Bus component
+    split_rule: str = "fraction"  # this sets the rule to always use a fraction between 0 and 1
+    split_fraction: float = 0.5  # degree of hybridization between Battery pack and EngineChains, 0 =< DoH =< 1
 
 
 @dataclass(frozen=False)
@@ -79,6 +87,7 @@ class ElectricPowerElements(ArchSubSystem):
     """Electrical power generation elements in the propulsion system architecture."""
 
     dc_bus: Optional[DCBus] = None
+    splitter: Optional[Splitter] = None
     batteries: Batteries = None
     engines: List[EngineChain] = None
 
@@ -92,6 +101,7 @@ class ElectricPowerElements(ArchSubSystem):
 
         # Prepare components
         dc_bus = self.dc_bus
+        splitter = self.splitter
         batteries = self.batteries
         engine_chains = self.engines
 
@@ -112,7 +122,10 @@ class ElectricPowerElements(ArchSubSystem):
 
         if dc_bus is not None:
             bus = elec_group.add_subsystem(dc_bus.name, SimpleDCBusInverted(num_nodes=nn, efficiency=dc_bus.efficiency))
-            elec_load_input = dc_bus.name+'.elec_power_out'
+            elec_load_input = dc_bus.name+'.elec_power_out'  # connect elec load to dc bus
+
+        if splitter is not None:
+            raise NotImplementedError('splitter not implemented yet!')
 
         # Create and add batteries
         if batteries is not None:
@@ -132,9 +145,10 @@ class ElectricPowerElements(ArchSubSystem):
             soc_outputs += [bat.name+'.SOC']
 
             if dc_bus is None:
-                elec_load_input = bat.name+'.elec_load'
+                elec_load_input = bat.name+'.elec_load'  # directly connect elec load to battery
             else:
-                elec_group.connect(dc_bus.name+'.elec_power_in', bat.name+'.elec_load')
+                if splitter is None and engine_chains is None:
+                    elec_group.connect(dc_bus.name+'.elec_power_in', bat.name+'.elec_load')
 
             elec_group.connect(bat_input_map['weight'], bat.name+'.battery_weight')
             elec_group.connect(input_map[DURATION_INPUT], bat.name+'.duration')
