@@ -40,7 +40,7 @@ __all__ = [
     'SHAFT_POWER_INPUT', 'THRUST_OUTPUT', 'RPM_INPUT', 'SHAFT_SPEED_INPUT', 'RATED_POWER_INPUT',
     'MechPowerElements', 'Engine', 'Motor', 'Inverter', 'FUEL_FLOW_OUTPUT', 'ELECTRIC_POWER_OUTPUT', 'THROTTLE_INPUT',
     'ACTIVE_INPUT',
-    'ElectricPowerElements', 'DCBus', 'Splitter', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'DCEngineChain',
+    'ElectricPowerElements', 'DCBus', 'ElecSplitter', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'DCEngineChain',
     'ACEngineChain', 'SOC_OUTPUT',
 ]
 # any interface variables must be added here as well

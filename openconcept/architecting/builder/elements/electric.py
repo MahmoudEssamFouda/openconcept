@@ -36,7 +36,7 @@ from openconcept.components.battery import SOCBattery
 from openconcept.components import SimpleTurboshaft, SimpleGenerator, SimpleDCBusInverted, SimpleConverter, PowerSplit
 
 __all__ = ['ElectricPowerElements', 'DCBus', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'DCEngineChain',
-           'ACEngineChain', 'Splitter', 'FUEL_FLOW_OUTPUT', 'SOC_OUTPUT']
+           'ACEngineChain', 'ElecSplitter', 'FUEL_FLOW_OUTPUT', 'SOC_OUTPUT']
 
 SOC_OUTPUT = 'SOC'
 
@@ -48,11 +48,11 @@ class DCBus(ArchElement):
 
 
 @dataclass(frozen=False)
-class Splitter(ArchElement):
+class ElecSplitter(ArchElement):
     """power splitter to divide a power input to two outputs A and B based on a split fraction and efficiency loss"""
     efficiency: float = 1.0  # always keep as 1, apply required efficiency in DC Bus component
     split_rule: str = "fraction"  # this sets the rule to always use a fraction between 0 and 1
-    split_fraction: float = 0.5  # degree of hybridization between Battery pack and EngineChains, 0 =< DoH =< 1
+    elec_DoH: float = 0.5  # degree of hybridization between Battery pack and DCEngineChains, 0 =< elec_DoH =< 1
 
 
 @dataclass(frozen=False)
@@ -71,12 +71,23 @@ class Batteries(ArchElement):
 class Generator(ArchElement):
     """An AC electric power generator."""
 
-    power_rating: float = 250.  # kW
+    efficiency: float = 0.97
+    # power_rating: float = 260.  # kW, passed from engine inside the engine chain
+    specific_weight: float = 1. / 5000  # kg/kW
+    base_weight: float = 0.  # kg
+    cost_inc: float = 100.0 / 745.0  # $ per watt
+    cost_base: float = 1.  # $ per base
 
 
 @dataclass(frozen=False)
 class Rectifier(ArchElement):
     """An AC to DC rectifier."""
+    efficiency: float = 0.97
+    # power_rating: float = 260.  # kW, passed from engine inside the engine chain
+    specific_weight: float = 1. / (10 * 1000)  # kg/kW
+    base_weight: float = 0.  # kg
+    cost_inc: float = 100.0 / 745.0  # $ per watt
+    cost_base: float = 1.  # $ per base
 
 
 DCEngineChain = Tuple[Engine, Generator, Rectifier]
@@ -88,7 +99,7 @@ class ElectricPowerElements(ArchSubSystem):
     """Electrical power generation elements in the propulsion system architecture."""
 
     dc_bus: Optional[DCBus] = None
-    splitter: Optional[Splitter] = None
+    splitter: Optional[ElecSplitter] = None
     batteries: Union[Batteries, List[Batteries]] = None
     engines_dc: Union[DCEngineChain, List[DCEngineChain]] = None
     engines_ac: Union[ACEngineChain, List[ACEngineChain]] = None
@@ -125,16 +136,30 @@ class ElectricPowerElements(ArchSubSystem):
 
         if dc_bus is not None:
             bus = elec_group.add_subsystem(dc_bus.name, SimpleDCBusInverted(num_nodes=nn, efficiency=dc_bus.efficiency))
-            elec_load_input = dc_bus.name+'.elec_power_out'  # connect elec load to dc bus
+            elec_load_input = bus.name + '.elec_power_out'  # connect elec load to dc bus
 
         if splitter is not None:
             if dc_bus is None:
-                raise RuntimeError("Currently, dc_bus is required with a splitter")
+                raise RuntimeError("dc_bus is required with a splitter")
             else:
                 if engine_chains_dc is None or batteries is None:
-                    raise RuntimeError("engines and batteries are needed with splitter")
+                    raise RuntimeError("both engines and batteries are required with splitter in ElectricPowerElements")
                 else:
-                    raise NotImplementedError('Splitter not implemented yet!')
+                    # Define design params for splitter
+                    _, splitter_input_map = collect_inputs(elec_group, [
+                        ('elec_DoH', None, np.ones(nn) * splitter.elec_DoH),
+                    ], name='splitter_in_collect')
+                    split = elec_group.add_subsystem(
+                        splitter.name, PowerSplit(num_nodes=nn, efficiency=splitter.efficiency,
+                                                  rule=splitter.split_rule))
+
+                    elec_group.connect(splitter_input_map['elec_DoH'], split.name + '.power_split_fraction')
+                    # define require power outputs
+                    battery_req_power_out = '.'.join([split.name, 'power_out_A'])
+                    eng_chain_req_power_out = '.'.join([split.name, 'power_out_B'])
+
+                    # track weight
+                    weight_outputs += ['.'.join([split.name, 'component_weight'])]
 
         # check batteries input
         if type(batteries) == list:
@@ -144,7 +169,7 @@ class ElectricPowerElements(ArchSubSystem):
             elif len(batteries) > 1:
                 raise NotImplementedError('multiple battery pack design is not implemented yet')
             else:
-                raise RuntimeError("Battery pack list cannot be empty")
+                raise ValueError("Battery pack list cannot be empty")
 
         # Create and add batteries
         if batteries is not None:
@@ -161,20 +186,70 @@ class ElectricPowerElements(ArchSubSystem):
                     cost_base=batteries.cost_base))
 
             weight_outputs += [bat_input_map['weight']]
-            soc_outputs += [bat.name+'.SOC']
+            soc_outputs += [bat.name + '.SOC']
 
             if dc_bus is None:
-                elec_load_input = bat.name+'.elec_load'  # directly connect elec load to battery
+                elec_load_input = bat.name + '.elec_load'  # directly connect elec load to battery
+                raise RuntimeWarning("motors AC power load should not be connected directly to Battery DC power supply")
             else:
-                if splitter is None and engine_chains_dc is None:
-                    elec_group.connect(dc_bus.name+'.elec_power_in', bat.name+'.elec_load')
+                if splitter is None:
+                    elec_group.connect(bus.name + '.elec_power_in', bat.name + '.elec_load')
+                else:
+                    elec_group.connect(battery_req_power_out, bat.name + '.elec_load')
 
-            elec_group.connect(bat_input_map['weight'], bat.name+'.battery_weight')
-            elec_group.connect(input_map[DURATION_INPUT], bat.name+'.duration')
+            elec_group.connect(bat_input_map['weight'], bat.name + '.battery_weight')
+            elec_group.connect(input_map[DURATION_INPUT], bat.name + '.duration')
 
         # Add conventional engine chains
         if engine_chains_dc is not None:
-            raise NotImplementedError('Series hybrid with DC Architecture not implemented yet!')
+            # parse components
+            engine, generator, rectifier = engine_chains_dc
+            # Define design params
+            _, eng_input_map = collect_inputs(elec_group, [
+                ('rating', 'kW', engine.power_rating),
+                ('output_rpm', 'rpm', engine.output_rpm),
+            ], name="eng_in_collect")
+
+            # Add engine component
+            eng = elec_group.add_subsystem(
+                engine.name, SimpleTurboshaft(num_nodes=nn, psfc=engine.psfc * 1.68965774e-7,
+                                              weight_inc=engine.specific_weight, weight_base=engine.base_weight))
+            # track weight and fuel
+            fuel_flow_outputs += ['.'.join([eng.name, 'fuel_flow'])]
+            weight_outputs += ['.'.join([eng.name, 'component_weight'])]
+
+            elec_group.connect(eng_input_map['rating'], eng.name + '.shaft_power_rating')
+
+            # add generator component
+            gen = elec_group.add_subsystem(
+                generator.name, SimpleGenerator(
+                    num_nodes=nn, efficiency=generator.efficiency, weight_inc=generator.specific_weight,
+                    weight_base=generator.base_weight, cost_inc=generator.cost_inc, cost_base=generator.cost_base))
+            # track weight
+            weight_outputs += ['.'.join([gen.name, 'component_weight'])]
+            # connect variables
+            elec_group.connect(eng_input_map['rating'], gen.name + '.elec_power_rating')
+            elec_group.connect(eng.name + '.shaft_power_out', gen.name + '.shaft_power_in')
+
+            # add rectifier component
+            rect = elec_group.add_subsystem(
+                rectifier.name, SimpleConverter(
+                    num_nodes=nn, efficiency=rectifier.efficiency, weight_inc=rectifier.specific_weight,
+                    weight_base=rectifier.base_weight, cost_inc=rectifier.cost_inc, cost_base=rectifier.cost_base))
+
+            # track weight
+            weight_outputs += ['.'.join([rect.name, 'component_weight'])]
+            # connect variables
+            elec_group.connect(eng_input_map['rating'], rect.name + '.elec_power_rating')
+            elec_group.connect(gen.name + '.elec_power_out', rect.name + '.elec_power_in')
+
+            # available output power of engine chain
+            eng_chain_avail_power_out = '.'.join([rect.name, 'elec_power_out'])
+
+            # find eng throttle to provide required power by using a balancer
+            throttle_from_power_balance(group=elec_group, power_req=eng_chain_req_power_out,
+                                        power_avail=eng_chain_avail_power_out, units='kW',
+                                        comp_name=eng.name, n=nn)
 
         if engine_chains_ac is not None:
             raise NotImplementedError('AC architectures not implemented yet!')
@@ -182,8 +257,8 @@ class ElectricPowerElements(ArchSubSystem):
         # Connect electric load
         if elec_load_input is None:
             raise RuntimeError('Cannot connect electric load!')
-        elec_load_output_param = mech_power_group.name+'.'+ELECTRIC_POWER_OUTPUT
-        arch.connect(elec_load_output_param, elec_group.name+'.'+elec_load_input)
+        elec_load_output_param = mech_power_group.name + '.' + ELECTRIC_POWER_OUTPUT
+        arch.connect(elec_load_output_param, elec_group.name + '.' + elec_load_input)
 
         # Calculate output sums
         create_output_sum(elec_group, FUEL_FLOW_OUTPUT, fuel_flow_outputs, 'kg/s', n=nn)
