@@ -249,10 +249,17 @@ class ElectricPowerElements(ArchSubSystem):
             # available output power of engine chain
             eng_chain_avail_power_out = '.'.join([rect.name, 'elec_power_out'])
 
-            # find eng throttle to provide required power by using a balancer
-            throttle_from_power_balance(group=elec_group, power_req=eng_chain_req_power_out,
-                                        power_avail=eng_chain_avail_power_out, units='kW',
-                                        comp_name=eng.name, n=nn)
+            if splitter is not None:
+                # find eng throttle to provide required power by using a balancer
+                throttle_from_power_balance(group=elec_group, power_req=eng_chain_req_power_out,
+                                            power_avail=eng_chain_avail_power_out, units='kW',
+                                            comp_name=eng.name, n=nn)
+            else:
+                if dc_bus is not None and batteries is None:
+                    eng_chain_req_power_out = bus.name + '.elec_power_in'
+                    throttle_from_power_balance(group=elec_group, power_req=eng_chain_req_power_out,
+                                                power_avail=eng_chain_avail_power_out, units='kW',
+                                                comp_name=eng.name, n=nn)
 
         if engine_chains_ac is not None:
             raise NotImplementedError('AC architectures not implemented yet!')

@@ -178,14 +178,24 @@ if __name__ == '__main__':
     #                                    batteries=Batteries('bat_pack')),
     # )
 
-    arch = PropSysArch(  # series hybrid
+    # arch = PropSysArch(  # series hybrid with one engine, battery and two motors
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(motors=Motor('elec_motor'),
+    #                            inverters=Inverter('inverter')),
+    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+    #                                    splitter=ElecSplitter('splitter'),
+    #                                    batteries=Batteries('bat_pack'),
+    #                                    engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
+    #                                                Rectifier(name='rectifier'))),
+    # )
+
+    arch = PropSysArch(  # turboelectric with one engine and two motors
         thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
                                  gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
         mech=MechPowerElements(motors=Motor('elec_motor'),
                                inverters=Inverter('inverter')),
         electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
-                                       splitter=ElecSplitter('splitter'),
-                                       batteries=Batteries('bat_pack'),
                                        engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
                                                    Rectifier(name='rectifier'))),
     )
