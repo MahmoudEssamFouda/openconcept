@@ -123,7 +123,7 @@ class DynamicPropulsionArchitecture(om.Group):
             if arch.electric is None:
                 raise RuntimeError('Electrical power generation is needed but no `ElectricPowerElements` is defined!')
 
-            elec_group = arch.electric.create_electric_group(self, mech_group, nn)
+            elec_group = arch.electric.create_electric_group(self, mech_group, thrust_groups, nn)
             subsys_groups += [elec_group]
 
             fuel_flow_outputs += [elec_group.name + '.' + FUEL_FLOW_OUTPUT]

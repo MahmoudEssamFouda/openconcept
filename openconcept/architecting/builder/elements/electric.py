@@ -105,7 +105,8 @@ class ElectricPowerElements(ArchSubSystem):
     engines_dc: Union[DCEngineChain, List[DCEngineChain]] = None
     engines_ac: Union[ACEngineChain, List[ACEngineChain]] = None
 
-    def create_electric_group(self, arch: om.Group, mech_power_group: om.Group, nn: int) -> om.Group:
+    def create_electric_group(self, arch: om.Group, mech_power_group: om.Group,
+                              thrust_groups: List[om.Group], nn: int) -> om.Group:
         """
         Creates the electrical power generation group.
 
