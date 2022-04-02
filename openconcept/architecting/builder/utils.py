@@ -30,7 +30,8 @@ import openmdao.api as om
 from openmdao.core.component import Component
 from openconcept.utilities.dvlabel import DVLabel
 
-__all__ = ['create_output_sum', 'collect_inputs', 'collect_outputs', 'ExpandComponent', 'ScalifyComponent']
+__all__ = ['create_output_sum', 'collect_inputs', 'collect_outputs', 'ExpandComponent', 'ScalifyComponent',
+           'throttle_from_power_balance']
 
 
 def create_output_sum(group: om.Group, output: str, inputs: List[str], units: str = None, n=1) -> Component:
@@ -78,6 +79,47 @@ def collect_outputs(group: om.Group, outputs: List[Tuple[str, Optional[str]]], n
         promotes_inputs=['*'], promotes_outputs=['*'])
 
     return comp, label_map
+
+
+def throttle_from_power_balance(group: om.Group, power_req: str = None, power_avail: str = None,
+                                units: str = None, comp_name: str = None, n: int = 1) -> Component:
+    """
+    a helper function that receives as input an OpenMDAO Group, that has a component for which it is required to
+    find the throttle input to achieve power balance between two variables, power_req and power_avail. it is usually
+    used to find the throttle value of a turboshaft engine or an electric motor that is needed to provide the
+    required power.
+
+    Inputs:
+        group: om.Group which contains the component for which we want fo find the throttle
+        power_req: the string the corresponds to the required power variable inside the group
+        power_avail: the string that corresponds to the available power variable inside the group
+        units: the units to be used to equate both power variables
+        comp_name: the name of the component for which we want to find throttle input, the component must have
+                    a thottle input variable with the name comp_name.throttle
+        n: number of nodes such that the throttle will be in the form np.ones(n,)*value
+
+    returns:
+        an OpenMDAO BalanceComp with the name balancer_name
+
+    changes:
+        It adds a BalanceComp to the group and connects the balancer_throttle to the comp_name.throttle and sets the
+        numerical model to solve for the throttle such that the power_req and power_avail are equal
+    """
+    balancer_name = comp_name + '_throttle_set'
+    balancer_output = comp_name + '_throttle'
+    balancer_rhs_name = 'power_req'
+    balancer_lhs_name = 'power_avail'
+    balancer = om.BalanceComp(balancer_output, val=np.ones((n,)) * 0.5, units=None, eq_units=units,
+                              rhs_name=balancer_rhs_name, lhs_name=balancer_lhs_name)
+
+    balancer_comp = group.add_subsystem(balancer_name, balancer)
+    group.connect(power_req, balancer_name + '.' + balancer_rhs_name)
+    group.connect(power_avail, balancer_name + '.' + balancer_lhs_name)
+    balancer_throttle = balancer_name + '.' + balancer_output
+    comp_throttle = comp_name + '.throttle'
+    group.connect(balancer_throttle, comp_throttle)
+
+    return balancer_comp
 
 
 class ExpandComponent(om.ExplicitComponent):
