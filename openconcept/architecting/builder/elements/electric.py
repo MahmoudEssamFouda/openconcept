@@ -50,6 +50,7 @@ class DCBus(ArchElement):
 @dataclass(frozen=False)
 class ElecSplitter(ArchElement):
     """power splitter to divide a power input to two outputs A and B based on a split fraction and efficiency loss"""
+    power_rating: float = 99999999  # 'W', maximum power rating of split component
     efficiency: float = 1.0  # always keep as 1, apply required efficiency in DC Bus component
     split_rule: str = "fraction"  # this sets the rule to always use a fraction between 0 and 1
     elec_DoH: float = 0.5  # degree of hybridization between Battery pack and DCEngineChains, 0 =< elec_DoH =< 1
@@ -154,6 +155,7 @@ class ElectricPowerElements(ArchSubSystem):
                                                   rule=splitter.split_rule))
 
                     elec_group.connect(splitter_input_map['elec_DoH'], split.name + '.power_split_fraction')
+                    elec_group.connect(bus.name+'.elec_power_in', split.name + '.power_in')
                     # define require power outputs
                     battery_req_power_out = '.'.join([split.name, 'power_out_A'])
                     eng_chain_req_power_out = '.'.join([split.name, 'power_out_B'])
