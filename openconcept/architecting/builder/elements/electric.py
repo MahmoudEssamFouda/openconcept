@@ -121,6 +121,7 @@ class ElectricPowerElements(ArchSubSystem):
         engine_chains_dc = self.engines_dc
         engine_chains_ac = self.engines_ac
 
+        # check inputs
         # check batteries input
         if type(batteries) == list:
             if len(batteries) == 1:
@@ -138,6 +139,15 @@ class ElectricPowerElements(ArchSubSystem):
                 raise NotImplementedError('multiple DC engine chains is not implemented yet')
             else:
                 raise ValueError("engine_chains_dc list cannot be empty")
+
+        # check engine_chains_ac input
+        if type(engine_chains_ac) == list:
+            if len(engine_chains_ac) == 1:
+                engine_chains_ac = engine_chains_ac[0]  # take first item of the list
+            elif len(engine_chains_ac) > 1:
+                raise NotImplementedError('multiple AC engine chains is not implemented yet')
+            else:
+                raise ValueError("engine_chains_ac list cannot be empty")
 
         # Create electrical power group
         elec_group: om.Group = arch.add_subsystem('elec', om.Group())
