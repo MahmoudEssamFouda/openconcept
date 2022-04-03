@@ -121,6 +121,24 @@ class ElectricPowerElements(ArchSubSystem):
         engine_chains_dc = self.engines_dc
         engine_chains_ac = self.engines_ac
 
+        # check batteries input
+        if type(batteries) == list:
+            if len(batteries) == 1:
+                batteries = batteries[0]  # take first item of the list
+            elif len(batteries) > 1:
+                raise NotImplementedError('multiple battery pack design is not implemented yet')
+            else:
+                raise ValueError("Battery pack list cannot be empty")
+
+        # check engine_chains_dc input
+        if type(engine_chains_dc) == list:
+            if len(engine_chains_dc) == 1:
+                engine_chains_dc = engine_chains_dc[0]  # take first item of the list
+            elif len(engine_chains_dc) > 1:
+                raise NotImplementedError('multiple DC engine chains is not implemented yet')
+            else:
+                raise ValueError("engine_chains_dc list cannot be empty")
+
         # Create electrical power group
         elec_group: om.Group = arch.add_subsystem('elec', om.Group())
 
@@ -156,23 +174,13 @@ class ElectricPowerElements(ArchSubSystem):
                                                   rule=splitter.split_rule))
 
                     elec_group.connect(splitter_input_map['elec_DoH'], split.name + '.power_split_fraction')
-                    elec_group.connect(bus.name+'.elec_power_in', split.name + '.power_in')
+                    elec_group.connect(bus.name + '.elec_power_in', split.name + '.power_in')
                     # define require power outputs
                     battery_req_power_out = '.'.join([split.name, 'power_out_A'])
                     eng_chain_req_power_out = '.'.join([split.name, 'power_out_B'])
 
                     # track weight
                     weight_outputs += ['.'.join([split.name, 'component_weight'])]
-
-        # check batteries input
-        if type(batteries) == list:
-            if len(batteries) == 1:
-                raise RuntimeError("for one Battery pack, "
-                                   "use batteries=Batteries('bat_pack') instead of [Batteries('bat_pack')]")
-            elif len(batteries) > 1:
-                raise NotImplementedError('multiple battery pack design is not implemented yet')
-            else:
-                raise ValueError("Battery pack list cannot be empty")
 
         # Create and add batteries
         if batteries is not None:
