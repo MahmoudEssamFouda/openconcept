@@ -38,8 +38,8 @@ __all__ = [
 
     'ThrustGenElements', 'Propeller', 'Gearbox',
     'SHAFT_POWER_INPUT', 'THRUST_OUTPUT', 'RPM_INPUT', 'SHAFT_SPEED_INPUT', 'RATED_POWER_INPUT',
-    'MechPowerElements', 'Engine', 'Motor', 'Inverter', 'MechSplitter', 'FUEL_FLOW_OUTPUT', 'ELECTRIC_POWER_OUTPUT',
-    'THROTTLE_INPUT', 'ACTIVE_INPUT',
+    'MechPowerElements', 'Engine', 'Motor', 'Inverter', 'MechSplitter', 'MechBus', 'FUEL_FLOW_OUTPUT',
+    'ELECTRIC_POWER_OUTPUT', 'THROTTLE_INPUT', 'ACTIVE_INPUT',
     'ElectricPowerElements', 'DCBus', 'ElecSplitter', 'Batteries', 'Engine', 'Generator', 'Rectifier', 'DCEngineChain',
     'ACEngineChain', 'SOC_OUTPUT',
 ]

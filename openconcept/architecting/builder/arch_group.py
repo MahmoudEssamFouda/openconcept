@@ -190,14 +190,26 @@ if __name__ == '__main__':
     #                                                Rectifier(name='rectifier'))),
     # )
 
-    arch = PropSysArch(  # turboelectric with one engine and two motors
+    # arch = PropSysArch(  # turboelectric with one engine and two motors
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(motors=Motor('elec_motor'),
+    #                            inverters=Inverter('inverter')),
+    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+    #                                    engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
+    #                                                Rectifier(name='rectifier'))),
+    # )
+
+    arch = PropSysArch(  # parallel hybrid system
         thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
                                  gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(motors=Motor('elec_motor'),
-                               inverters=Inverter('inverter')),
+        mech=MechPowerElements(engines=Engine('turboshaft'),
+                               motors=Motor('motor'),
+                               inverters=Inverter('inverter'),
+                               mech_buses=MechBus('mech_bus'),
+                               mech_splitters=MechSplitter('mech_splitter')),
         electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
-                                       engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
-                                                   Rectifier(name='rectifier'))),
+                                       batteries=Batteries('bat_pack')),
     )
 
     prob = om.Problem()
