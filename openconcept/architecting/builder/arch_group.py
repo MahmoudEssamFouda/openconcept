@@ -205,9 +205,9 @@ if __name__ == '__main__':
                                  gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
         mech=MechPowerElements(engines=Engine('turboshaft'),
                                motors=Motor('motor'),
-                               inverters=Inverter('inverter'),
                                mech_buses=MechBus('mech_bus'),
-                               mech_splitters=MechSplitter('mech_splitter')),
+                               mech_splitters=MechSplitter('mech_splitter'),
+                               inverters=Inverter('inverter')),
         electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
                                        batteries=Batteries('bat_pack')),
     )
