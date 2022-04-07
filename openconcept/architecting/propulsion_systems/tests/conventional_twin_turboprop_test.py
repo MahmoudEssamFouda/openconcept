@@ -90,8 +90,8 @@ class ConventionalTwinTurbopropExpandedTestGroup(om.Group):
         dvs.add_output('ac|propulsion|engine|output_rpm', val=6000.0, units='rpm')
         dvs.add_output('ac|propulsion|propeller|diameter', val=2.3, units='m')
         dvs.add_output('ac|propulsion|propeller|power_rating', val=850, units='hp')
-        dvs.add_output('ac|propulsion|propeller|max_speed', val=2900.0, units='rpm')
-        dvs.add_output('ac|propulsion|propeller|min_speed', val=1100.0, units='rpm')
+        dvs.add_output('ac|propulsion|propeller|max_speed', val=2900.0, units='rpm') # not used
+        dvs.add_output('ac|propulsion|propeller|min_speed', val=1900.0, units='rpm')
 
         flt_cond = self.add_subsystem('flt_cond', om.IndepVarComp(), promotes_outputs=['*'])
         flt_cond.add_output('fltcond|rho', units='kg / m ** 3', desc='Air density', val=np.ones(nn) * 0.475448)

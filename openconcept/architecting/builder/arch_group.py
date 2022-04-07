@@ -92,7 +92,7 @@ class DynamicPropulsionArchitecture(om.Group):
             (ACTIVE_INPUT, None, np.tile(1., nn)),
             (FLTCOND_RHO_INPUT, 'kg/m**3', np.tile(1.225, nn)),
             (FLTCOND_TAS_INPUT, 'm/s', np.tile(100., nn)),
-        ])
+        ], name="propmodel_in_collect")
         order = [input_comp.name]
 
         subsys_groups = []
@@ -105,15 +105,15 @@ class DynamicPropulsionArchitecture(om.Group):
         thrust_groups = arch.thrust.create_thrust_groups(self, nn)
         subsys_groups += thrust_groups.copy()
 
-        weight_outputs += [grp.name+'.'+WEIGHT_OUTPUT for grp in thrust_groups]
-        thrust_outputs += [grp.name+'.'+THRUST_OUTPUT for grp in thrust_groups]
+        weight_outputs += [grp.name + '.' + WEIGHT_OUTPUT for grp in thrust_groups]
+        thrust_outputs += [grp.name + '.' + THRUST_OUTPUT for grp in thrust_groups]
 
         # Create mechanical power generation groups: motors or engines connected to the propellers
         mech_group, electric_power_gen_needed = arch.mech.create_mech_group(self, thrust_groups, nn)
         subsys_groups += [mech_group]
 
-        fuel_flow_outputs += [mech_group.name+'.'+FUEL_FLOW_OUTPUT]
-        weight_outputs += [mech_group.name+'.'+WEIGHT_OUTPUT]
+        fuel_flow_outputs += [mech_group.name + '.' + FUEL_FLOW_OUTPUT]
+        weight_outputs += [mech_group.name + '.' + WEIGHT_OUTPUT]
 
         order += [mech_group.name]
         order += [grp.name for grp in thrust_groups]
@@ -123,19 +123,19 @@ class DynamicPropulsionArchitecture(om.Group):
             if arch.electric is None:
                 raise RuntimeError('Electrical power generation is needed but no `ElectricPowerElements` is defined!')
 
-            elec_group = arch.electric.create_electric_group(self, mech_group, nn)
+            elec_group = arch.electric.create_electric_group(self, mech_group, thrust_groups, nn)
             subsys_groups += [elec_group]
 
-            fuel_flow_outputs += [elec_group.name+'.'+FUEL_FLOW_OUTPUT]
-            weight_outputs += [elec_group.name+'.'+WEIGHT_OUTPUT]
-            soc_outputs += [elec_group.name+'.'+SOC_OUTPUT]
+            fuel_flow_outputs += [elec_group.name + '.' + FUEL_FLOW_OUTPUT]
+            weight_outputs += [elec_group.name + '.' + WEIGHT_OUTPUT]
+            soc_outputs += [elec_group.name + '.' + SOC_OUTPUT]
 
             order += [elec_group.name]
 
         # Connect inputs
         def _connect_input(input_name: str, groups: List[om.Group], group_input_name: str = None):
             for group in groups:
-                self.connect(input_map[input_name], group.name+'.'+(group_input_name or input_name))
+                self.connect(input_map[input_name], group.name + '.' + (group_input_name or input_name))
 
         _connect_input(RPM_INPUT, thrust_groups)
         _connect_input(THROTTLE_INPUT, [mech_group])
@@ -163,17 +163,54 @@ if __name__ == '__main__':
     #     mech=MechPowerElements(engines=Engine('turboshaft')),
     # )
     #
-    arch = PropSysArch(  # Conventional with gearbox
+    # arch = PropSysArch(  # Conventional with gearbox
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(engines=Engine('turboshaft')),
+    # )
+    #
+    # arch = PropSysArch(  # All-electric with inverters
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(motors=Motor('elec_motor'),
+    #                            inverters=Inverter('inverter')),
+    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+    #                                    batteries=Batteries('bat_pack')),
+    # )
+
+    # arch = PropSysArch(  # series hybrid with one engine, battery and two motors
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(motors=Motor('elec_motor'),
+    #                            inverters=Inverter('inverter')),
+    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+    #                                    splitter=ElecSplitter('splitter'),
+    #                                    batteries=Batteries('bat_pack'),
+    #                                    engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
+    #                                                Rectifier(name='rectifier'))),
+    # )
+
+    # arch = PropSysArch(  # turboelectric with one engine and two motors
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(motors=Motor('elec_motor'),
+    #                            inverters=Inverter('inverter')),
+    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+    #                                    engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
+    #                                                Rectifier(name='rectifier'))),
+    # )
+
+    arch = PropSysArch(  # parallel hybrid system
         thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
                                  gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(engines=Engine('turboshaft')),
+        mech=MechPowerElements(engines=Engine('turboshaft'),
+                               motors=Motor('motor'),
+                               mech_buses=MechBus('mech_bus'),
+                               mech_splitters=MechSplitter('mech_splitter'),
+                               inverters=Inverter('inverter')),
+        electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+                                       batteries=Batteries('bat_pack')),
     )
-    #
-    # arch = PropSysArch(  # All-electric (no inverters)
-    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')]),
-    #     mech=MechPowerElements(motors=Motor('elec_motor')),
-    #     electric=ElectricPowerElements(batteries=Batteries('bat_pack')),
-    # )
 
     prob = om.Problem()
     prob.model = DynamicPropulsionArchitecture(num_nodes=11, architecture=arch)
