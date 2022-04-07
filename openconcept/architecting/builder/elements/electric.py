@@ -196,7 +196,7 @@ class ElectricPowerElements(ArchSubSystem):
         if batteries is not None:
             # Define design params
             _, bat_input_map = collect_inputs(elec_group, [
-                ('weight', 'kg', batteries.weight),
+                ('battery_weight', 'kg', batteries.weight),
             ], name='bat_in_collect')
 
             # Add battery component
@@ -206,7 +206,7 @@ class ElectricPowerElements(ArchSubSystem):
                     specific_energy=batteries.specific_energy, cost_inc=batteries.cost_inc,
                     cost_base=batteries.cost_base))
 
-            weight_outputs += [bat_input_map['weight']]
+            weight_outputs += [bat_input_map['battery_weight']]
             soc_outputs += [bat.name + '.SOC']
 
             if dc_bus is None:
@@ -218,7 +218,7 @@ class ElectricPowerElements(ArchSubSystem):
                 else:
                     elec_group.connect(battery_req_power_out, bat.name + '.elec_load')
 
-            elec_group.connect(bat_input_map['weight'], bat.name + '.battery_weight')
+            elec_group.connect(bat_input_map['battery_weight'], bat.name + '.battery_weight')
             elec_group.connect(input_map[DURATION_INPUT], bat.name + '.duration')
 
         # Add conventional engine chains
@@ -227,8 +227,8 @@ class ElectricPowerElements(ArchSubSystem):
             engine, generator, rectifier = engine_chains_dc
             # Define design params
             _, eng_input_map = collect_inputs(elec_group, [
-                ('rating', 'kW', engine.power_rating),
-                ('output_rpm', 'rpm', engine.output_rpm),
+                ('eng_rating', 'kW', engine.power_rating),
+                ('eng_output_rpm', 'rpm', engine.output_rpm),
             ], name="eng_in_collect")
 
             # Add engine component
@@ -239,7 +239,7 @@ class ElectricPowerElements(ArchSubSystem):
             fuel_flow_outputs += ['.'.join([eng.name, 'fuel_flow'])]
             weight_outputs += ['.'.join([eng.name, 'component_weight'])]
 
-            elec_group.connect(eng_input_map['rating'], eng.name + '.shaft_power_rating')
+            elec_group.connect(eng_input_map['eng_rating'], eng.name + '.shaft_power_rating')
 
             # add generator component
             gen = elec_group.add_subsystem(
@@ -249,7 +249,7 @@ class ElectricPowerElements(ArchSubSystem):
             # track weight
             weight_outputs += ['.'.join([gen.name, 'component_weight'])]
             # connect variables
-            elec_group.connect(eng_input_map['rating'], gen.name + '.elec_power_rating')
+            elec_group.connect(eng_input_map['eng_rating'], gen.name + '.elec_power_rating')
             elec_group.connect(eng.name + '.shaft_power_out', gen.name + '.shaft_power_in')
 
             # add rectifier component
@@ -261,7 +261,7 @@ class ElectricPowerElements(ArchSubSystem):
             # track weight
             weight_outputs += ['.'.join([rect.name, 'component_weight'])]
             # connect variables
-            elec_group.connect(eng_input_map['rating'], rect.name + '.elec_power_rating')
+            elec_group.connect(eng_input_map['eng_rating'], rect.name + '.elec_power_rating')
             elec_group.connect(gen.name + '.elec_power_out', rect.name + '.elec_power_in')
 
             # available output power of engine chain

@@ -350,8 +350,8 @@ class MechPowerElements(ArchSubSystem):
             if engine is not None and motor is None:  # used usually for conventional architectures
                 # Define design params
                 _, eng_input_map = collect_inputs(mech_thrust_group, [
-                    ('rating', 'kW', engine.power_rating),
-                    ('output_rpm', 'rpm', engine.output_rpm),
+                    ('eng_rating', 'kW', engine.power_rating),
+                    ('eng_output_rpm', 'rpm', engine.output_rpm),
                 ], name="eng_in_collect")
 
                 # add one engine inoperative case for prop systems with two or more engines
@@ -368,15 +368,16 @@ class MechPowerElements(ArchSubSystem):
                     engine.name, SimpleTurboshaft(num_nodes=nn, psfc=engine.psfc * 1.68965774e-7,
                                                   weight_inc=engine.specific_weight, weight_base=engine.base_weight))
 
-                mech_thrust_group.connect(eng_input_map['rating'], eng.name + '.shaft_power_rating')
+                mech_thrust_group.connect(eng_input_map['eng_rating'], eng.name + '.shaft_power_rating')
 
                 fuel_flow_outputs += ['.'.join([mech_thrust_group.name, eng.name, 'fuel_flow'])]
                 weight_outputs += ['.'.join([mech_thrust_group.name, eng.name, 'component_weight'])]
 
                 # define out_params
                 shaft_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, eng.name, 'shaft_power_out'])
-                shaft_speed_out_param = '.'.join([mech_group.name, mech_thrust_group.name, eng_input_map['output_rpm']])
-                rated_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, eng_input_map['rating']])
+                shaft_speed_out_param = '.'.join([mech_group.name, mech_thrust_group.name,
+                                                  eng_input_map['eng_output_rpm']])
+                rated_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, eng_input_map['eng_rating']])
 
                 # define throttle parameter in case of one engine inoperative OEI or Normal
                 if i == 1:  # in the case of OEI, for mech2, connect throttle to failedengine
@@ -386,11 +387,11 @@ class MechPowerElements(ArchSubSystem):
                     throttle_param = '.'.join([mech_thrust_group.name, eng.name, 'throttle'])
 
             # Add electric motor
-            if motor is not None and engine is None:
+            if motor is not None and engine is None:  # usually used for all electric, turboelectric, or series hybrid
                 # Defined design params
                 _, mot_input_map = collect_inputs(mech_thrust_group, [
-                    ('rating', 'kW', motor.power_rating),
-                    ('output_rpm', 'rpm', motor.output_rpm),
+                    ('motor_rating', 'kW', motor.power_rating),
+                    ('motor_output_rpm', 'rpm', motor.output_rpm),
                 ], name="motor_in_collect")
 
                 # add one motor inoperative case for prop systems with two or more motors
@@ -408,17 +409,19 @@ class MechPowerElements(ArchSubSystem):
                                             weight_base=motor.base_weight, cost_inc=motor.cost_inc,
                                             cost_base=motor.cost_base))
 
-                mech_thrust_group.connect(mot_input_map['rating'], mot.name + '.elec_power_rating')
+                mech_thrust_group.connect(mot_input_map['motor_rating'], mot.name + '.elec_power_rating')
 
                 weight_outputs += ['.'.join([mech_thrust_group.name, mot.name, 'component_weight'])]
 
-                if inverter is None:  # override if inverter is added
+                if inverter is None:  # set electric load to motor load if no inverter is present
                     electric_load_outputs += ['.'.join([mech_thrust_group.name, mot.name, 'elec_load'])]
 
                 # define out_params
                 shaft_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot.name, 'shaft_power_out'])
-                shaft_speed_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot_input_map['output_rpm']])
-                rated_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, mot_input_map['rating']])
+                shaft_speed_out_param = '.'.join([mech_group.name, mech_thrust_group.name,
+                                                  mot_input_map['motor_output_rpm']])
+                rated_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name,
+                                                  mot_input_map['motor_rating']])
 
                 # define throttle parameter in case of one motor inoperative OEI or Normal
                 if i == 1:  # in the case of OEI, for mech2, connect throttle to failedmotor
@@ -438,14 +441,11 @@ class MechPowerElements(ArchSubSystem):
                             weight_base=inverter.base_weight, cost_inc=inverter.cost_inc, cost_base=inverter.cost_base))
 
                     weight_outputs += ['.'.join([mech_thrust_group.name, invert.name, 'component_weight'])]
+                    # override electric load to get it from inverter
                     electric_load_outputs += ['.'.join([mech_thrust_group.name, invert.name, 'elec_power_in'])]
 
-                    if engine is None:
-                        mech_thrust_group.connect(mot_input_map['rating'], invert.name + '.elec_power_rating')
-                        mech_thrust_group.connect(mot.name + '.elec_load', invert.name + '.elec_power_out')
-                    else:
-                        mech_thrust_group.connect(mot_input_map['motor_rating'], invert.name + '.elec_power_rating')
-                        mech_thrust_group.connect(mot.name + '.elec_load', invert.name + '.elec_power_out')
+                    mech_thrust_group.connect(mot_input_map['motor_rating'], invert.name + '.elec_power_rating')
+                    mech_thrust_group.connect(mot.name + '.elec_load', invert.name + '.elec_power_out')
 
             # Connect throttle input
             mech_group.connect(input_map[THROTTLE_INPUT], throttle_param)
