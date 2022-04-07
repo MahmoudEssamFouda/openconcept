@@ -209,26 +209,57 @@ class MechPowerElements(ArchSubSystem):
                 if inverter is None:  # override if inverter is added
                     electric_load_outputs += ['.'.join([mech_thrust_group.name, mot.name, 'elec_load'])]
 
-                # get propulsor active flag as scalar
-                scalify_active_flag = ScalifyComponent(
-                    vars=[
-                        ('propulsor_active_vector', ACTIVE_INPUT + '_scalar', nn, None),
-                    ])
-                mech_thrust_group.add_subsystem('scalify_active_input', subsys=scalify_active_flag)
-                mech_group.connect(input_map[ACTIVE_INPUT],
-                                   mech_thrust_group.name + '.scalify_active_input' + '.propulsor_active_vector')
+                if i == 1:  # add OEI condition
+                    # get propulsor active flag as scalar to use it for OEI
+                    scalify_active_flag = ScalifyComponent(
+                        vars=[
+                            ('propulsor_active_vector', ACTIVE_INPUT + '_scalar', nn, None),
+                        ])
+                    mech_thrust_group.add_subsystem('scalify_active_input', subsys=scalify_active_flag)
+                    mech_group.connect(input_map[ACTIVE_INPUT],
+                                       mech_thrust_group.name + '.scalify_active_input' + '.propulsor_active_vector')
 
-                # add rated powers of eng and motor
-                sum_rated_power = AddSubtractComp()
-                sum_rated_power.add_equation(
+                    # add rated powers
+                    sum_rated_power = om.ExecComp([
+                        'tot_rated_power = engine_rated_power + active_flag * motor_rated_power',
+                    ],
+                        tot_rated_power={'val': 1, 'units': 'kW'},
+                        engine_rated_power={'val': 1, 'units': 'kW'},
+                        active_flag={'val': 1},
+                        motor_rated_power={'val': 1.0, 'units': 'kW'},
+                    )
+                    mech_thrust_group.add_subsystem('sum_rated_power', subsys=sum_rated_power)
+                    mech_thrust_group.connect(eng_input_map['eng_rating'],
+                                              'sum_rated_power' + '.engine_rated_power')
+                    mech_thrust_group.connect(mot_input_map['motor_rating'],
+                                              'sum_rated_power' + '.motor_rated_power')
+                    mech_thrust_group.connect('scalify_active_input' + '.' + ACTIVE_INPUT + '_scalar',
+                                              'sum_rated_power' + '.active_flag')
+                else:  # all engines active condition
+                    sum_rated_power = om.ExecComp([
+                        'tot_rated_power = engine_rated_power + motor_rated_power',
+                    ],
+                        tot_rated_power={'val': 1, 'units': 'kW'},
+                        engine_rated_power={'val': 1, 'units': 'kW'},
+                        motor_rated_power={'val': 1.0, 'units': 'kW'},
+                    )
+                    mech_thrust_group.add_subsystem('sum_rated_power', subsys=sum_rated_power)
+                    mech_thrust_group.connect(eng_input_map['eng_rating'],
+                                              'sum_rated_power' + '.engine_rated_power')
+                    mech_thrust_group.connect(mot_input_map['motor_rating'],
+                                              'sum_rated_power' + '.motor_rated_power')
+
+                # add rated powers of eng and motor for sizing
+                sizing_rated_power = AddSubtractComp()
+                sizing_rated_power.add_equation(
                     output_name='tot_rated_power',
                     input_names=[eng.name + '_rated_power', mot.name + '_rated_power'],
                     units='kW')
-                mech_thrust_group.add_subsystem('sum_rated_power', subsys=sum_rated_power)
+                mech_thrust_group.add_subsystem('sizing_rated_power', subsys=sizing_rated_power)
                 mech_thrust_group.connect(eng_input_map['eng_rating'],
-                                          'sum_rated_power' + '.' + eng.name + '_rated_power')
+                                          'sizing_rated_power' + '.' + eng.name + '_rated_power')
                 mech_thrust_group.connect(mot_input_map['motor_rating'],
-                                          'sum_rated_power' + '.' + mot.name + '_rated_power')
+                                          'sizing_rated_power' + '.' + mot.name + '_rated_power')
 
                 # get total shaft power output of (engine + motor) system
                 get_shaft_power = om.ExecComp([
@@ -252,15 +283,38 @@ class MechPowerElements(ArchSubSystem):
                 mech_thrust_group.connect('eng_motor_shaft_power' + '.tot_shaft_power',
                                           bus.name + '.shaft_power_in')
 
-                # add MechBus and MechSplitter to define mech_DoH
+                # add splitter
                 # Define design params for splitter
                 _, splitter_input_map = collect_inputs(mech_thrust_group, [
                     ('mech_DoH', None, np.ones(nn) * mech_splitter.mech_DoH),
                 ], name='splitter_in_collect')
+
+                if i == 1:
+                    # add get split fraction component for OEI
+                    get_split_fraction = om.ExecComp([
+                        'split_fraction_vec = active_flag_vec * mech_DoH_vec',
+                    ],
+                        split_fraction_vec={'val': np.zeros(nn)},
+                        active_flag_vec={'val': np.zeros(nn)},
+                        mech_DoH_vec={'val': np.ones(nn)},
+                    )
+                    mech_thrust_group.add_subsystem('get_split_fraction', subsys=get_split_fraction)
+                    mech_thrust_group.connect(splitter_input_map['mech_DoH'],
+                                              'get_split_fraction' + '.mech_DoH_vec')
+                    mech_group.connect(input_map[ACTIVE_INPUT],
+                                       mech_thrust_group.name + '.get_split_fraction' + '.active_flag_vec')
+
                 split = mech_thrust_group.add_subsystem(
                     mech_splitter.name, PowerSplit(num_nodes=nn, efficiency=mech_splitter.efficiency,
                                                    rule=mech_splitter.split_rule))
-                mech_thrust_group.connect(splitter_input_map['mech_DoH'], split.name + '.power_split_fraction')
+                # add OEI condition
+                if i == 1:  # use get split fraction to connect to split fraction
+                    mech_thrust_group.connect('get_split_fraction' + '.split_fraction_vec',
+                                              split.name + '.power_split_fraction')
+                else:  # use input map to connect to split fraction
+                    mech_thrust_group.connect(splitter_input_map['mech_DoH'], split.name + '.power_split_fraction')
+
+                # connect shaft power input to splitter
                 mech_thrust_group.connect('eng_motor_shaft_power' + '.tot_shaft_power',
                                           split.name + '.power_in')
                 # track weight
@@ -290,7 +344,7 @@ class MechPowerElements(ArchSubSystem):
                 shaft_speed_out_param = '.'.join([mech_group.name, mech_thrust_group.name,
                                                   bus.name, 'output_rpm'])
                 rated_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name,
-                                                  'sum_rated_power', 'tot_rated_power'])
+                                                  'sizing_rated_power', 'tot_rated_power'])
 
             # Add turboshaft engine
             if engine is not None and motor is None:  # used usually for conventional architectures
