@@ -67,7 +67,7 @@ class Motor(ArchElement):
     base_weight: float = 0.  # kg
     cost_inc: float = 100.0 / 745.0  # $ per watt
     cost_base: float = 1.  # $ per base
-    output_rpm: float = 5500  # rpm
+    output_rpm: float = 6000  # rpm
 
 
 @dataclass(frozen=False)
@@ -96,7 +96,7 @@ class MechSplitter(ArchElement):
 class MechBus(ArchElement):
     """electric dc bus"""
     efficiency: float = 0.95  # efficiency loss to combine eng and motor shaft powers
-    rpm_out: float = 5500  # output rpm of the mechanical bus to be connected to gearbox
+    rpm_out: float = 6000  # output rpm of the mechanical bus to be connected to gearbox
 
 
 @dataclass(frozen=False)
