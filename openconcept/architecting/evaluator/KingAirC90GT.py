@@ -54,7 +54,7 @@ class DynamicKingAirAnalysisGroup(om.Group):
 
         # Promote propulsion system variables that are used in the optimization problem as DVs
         segments = ['v0v1', 'v1vr', 'rotate', 'v1v0', 'engineoutclimb', 'climb', 'cruise', 'descent']
-        var_promote = [(['propmodel.mech.mech1.rating', 'propmodel.mech.mech2.rating'], 'ac|propulsion|engine|rating'),
+        var_promote = [(['propmodel.mech.mech1.eng_rating', 'propmodel.mech.mech2.eng_rating'], 'ac|propulsion|engine|rating'),
                        (['propmodel.thrust1.diameter', 'propmodel.thrust2.diameter'], 'ac|propulsion|propeller|diameter')]
         promotes_list = []
         for segment in segments:
