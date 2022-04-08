@@ -49,7 +49,7 @@ ELECTRIC_POWER_OUTPUT = 'motors_elec_power'
 class Engine(ArchElement):
     """Conventional turboshaft engine."""
 
-    power_rating: float = 260.  # kW
+    power_rating: float = 560.  # kW
 
     specific_weight: float = .14 / 1000  # kg/kW
     base_weight: float = 104  # kg
@@ -379,12 +379,12 @@ class MechPowerElements(ArchSubSystem):
                                                   eng_input_map['eng_output_rpm']])
                 rated_power_out_param = '.'.join([mech_group.name, mech_thrust_group.name, eng_input_map['eng_rating']])
 
-                # # define throttle parameter in case of one engine inoperative OEI or Normal
-                # if i == 1:  # in the case of OEI, for mech2, connect throttle to failedengine
-                #     throttle_param = '.'.join([mech_thrust_group.name, 'failedengine', 'throttle_vec'])
-                #     mech_thrust_group.connect('failedengine' + '.eng2throttle', eng.name + '.throttle')
-                # else:  # Normal conditions
-                throttle_param = '.'.join([mech_thrust_group.name, eng.name, 'throttle'])
+                # define throttle parameter in case of one engine inoperative OEI or Normal
+                if i == 1:  # in the case of OEI, for mech2, connect throttle to failedengine
+                    throttle_param = '.'.join([mech_thrust_group.name, 'failedengine', 'throttle_vec'])
+                    mech_thrust_group.connect('failedengine' + '.eng2throttle', eng.name + '.throttle')
+                else:  # Normal conditions
+                    throttle_param = '.'.join([mech_thrust_group.name, eng.name, 'throttle'])
 
             # Add electric motor
             if motor is not None and engine is None:  # usually used for all electric, turboelectric, or series hybrid

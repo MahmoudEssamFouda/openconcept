@@ -92,19 +92,6 @@ class DynamicKingAirAnalysisGroup(om.Group):
         )
         self.connect("descent.fuel_used_final", "aug_obj.fuel_burn")
 
-        # Promote propulsion system variables that are used in the optimization problem as DVs
-        segments = ["v0v1", "v1vr", "rotate", "v1v0", "engineoutclimb", "climb", "cruise", "descent"]
-        var_promote = [
-            (["propmodel.mech.mech1.eng_rating", "propmodel.mech.mech2.eng_rating"], "ac|propulsion|engine|rating"),
-            (["propmodel.thrust1.diameter", "propmodel.thrust2.diameter"], "ac|propulsion|propeller|diameter"),
-        ]
-        promotes_list = []
-        for segment in segments:
-            for var in var_promote:
-                for abs_var in var[0]:
-                    promotes_list.append((f"{segment}.{abs_var}", var[1]))
-        self.promotes("mission", inputs=promotes_list)
-
 
 class AugmentedFBObjective(om.ExplicitComponent):
     def setup(self):
@@ -128,6 +115,7 @@ def opt_prob(
         {"var": "cruise.throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
         {"var": "descent.throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
     ],
+    model=DynamicKingAirAnalysisGroup,
 ):
     """
     Optimization problem definition. Can be used for analyses too.
@@ -149,6 +137,8 @@ def opt_prob(
     prop_sys_cons : dict
         List of propulsion system constraints. This is a list of dictionaries, each of which
         are in the same format as the obj dictionary.
+    model : OpenMDAO Group
+        Top level model for OpenMDAO problem, by default DynamicKingAriAnalysisGroup
     """
     # Check the inputs and set defaults
     if prop_arch is None:
@@ -169,7 +159,7 @@ def opt_prob(
             con["kwargs"] = {}
 
     prob = om.Problem()
-    prob.model = DynamicKingAirAnalysisGroup(num_nodes=num_nodes, prop_arch=prop_arch)
+    prob.model = model(num_nodes=num_nodes, prop_arch=prop_arch)
     prob.model.nonlinear_solver = om.NewtonSolver(iprint=2, err_on_non_converge=False)
     prob.model.nonlinear_solver.linesearch = om.BoundsEnforceLS(print_bound_enforce=False)
     prob.model.options["assembled_jac_type"] = "csc"
@@ -219,7 +209,7 @@ def set_problem_vars(prob, num_nodes=11):
     """
     # Set required mission parameters
     prob.set_val("ac|weights|MTOW", 10099., units="lb")
-    prob.set_val("ac|propulsion|engine|rating", 500., units="kW")
+    prob.set_val("ac|propulsion|engine|rating", 560., units="kW")
     prob.set_val("climb.fltcond|vs", np.ones((num_nodes,)) * 1500, units="ft/min")
     prob.set_val("climb.fltcond|Ueas", np.ones((num_nodes,)) * 124, units="kn")
     prob.set_val("cruise.fltcond|vs", np.ones((num_nodes,)) * 0.01, units="ft/min")
