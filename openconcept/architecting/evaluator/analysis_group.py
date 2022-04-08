@@ -218,8 +218,8 @@ def set_problem_vars(prob, num_nodes=11):
         Number of numerical integration points per flight segment, by default 11.
     """
     # Set required mission parameters
-    prob.set_val("ac|weights|MTOW", 10e3, units="lb")
-    prob.set_val("ac|propulsion|engine|rating", 500, units="kW")
+    prob.set_val("ac|weights|MTOW", 10099., units="lb")
+    prob.set_val("ac|propulsion|engine|rating", 500., units="kW")
     prob.set_val("climb.fltcond|vs", np.ones((num_nodes,)) * 1500, units="ft/min")
     prob.set_val("climb.fltcond|Ueas", np.ones((num_nodes,)) * 124, units="kn")
     prob.set_val("cruise.fltcond|vs", np.ones((num_nodes,)) * 0.01, units="ft/min")
@@ -229,7 +229,7 @@ def set_problem_vars(prob, num_nodes=11):
 
     prob.set_val("cruise|h0", 29000, units="ft")
     prob.set_val("mission_range", 1000, units="NM")
-    prob.set_val("payload", 500, units="lb")
+    prob.set_val("payload", 1000, units="lb")
 
     # (optional) guesses for takeoff speeds may help with convergence
     prob.set_val("v0v1.fltcond|Utrue", np.ones((num_nodes)) * 50, units="kn")
