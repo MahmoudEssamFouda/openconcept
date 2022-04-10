@@ -45,7 +45,7 @@ cons = [
 ]
 
 mission_ranges = np.linspace(300, 800, 10)
-results = []  # will have a dictionary containing "fuel burn" and "MTOW" for each mission range
+results = []  # will have a dictionary containing "fuel burn" (in kg) and "MTOW" (in kg) for each mission range
 filepath = os.path.join(curDir, "data", "conventional")
 
 for mission_range in mission_ranges:
@@ -56,6 +56,13 @@ for mission_range in mission_ranges:
     p.set_val("mission_range", mission_range, units="nmi")
     p.run_driver()
     p.record("optimized")
+
+    # Set values in the results vector
+    results.append({})
+    results[-1]["fuel burn"] = np.asscalar(p.get_val("descent.fuel_used_final", units="kg"))
+    results[-1]["MTOW"] = np.asscalar(p.get_val("ac|weights|MTOW", units="kg"))
+
+    print(results)
 
 # p.run_model()
 # om.n2(p, show_browser=False)
