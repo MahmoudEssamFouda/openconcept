@@ -116,6 +116,7 @@ def opt_prob(
         {"var": "descent.throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
     ],
     model=DynamicKingAirAnalysisGroup,
+    hst_file="opt.hst",
 ):
     """
     Optimization problem definition. Can be used for analyses too.
@@ -139,6 +140,8 @@ def opt_prob(
         are in the same format as the obj dictionary.
     model : OpenMDAO Group
         Top level model for OpenMDAO problem, by default DynamicKingAriAnalysisGroup
+    hst_file : str
+        If the pyOptSparse driver is used, this is the optimization history file name.
     """
     # Check the inputs and set defaults
     if prop_arch is None:
@@ -170,9 +173,23 @@ def opt_prob(
     prob.model.nonlinear_solver.options["rtol"] = 1e-8
 
     # Setup the optimization
-    prob.driver = om.ScipyOptimizeDriver(optimizer="SLSQP", maxiter=200, tol=1e-8, disp=True)
+    # prob.driver = om.ScipyOptimizeDriver(optimizer="SLSQP", maxiter=200, tol=1e-8, disp=True)
+    # prob.driver.options["debug_print"] = ["objs", "desvars", "nl_cons"]
+
+    prob.driver = om.pyOptSparseDriver(optimizer="IPOPT")
+    prob.driver.hist_file = hst_file
     prob.driver.options["debug_print"] = ["objs", "desvars", "nl_cons"]
-    
+    prob.driver.opt_settings["max_iter"] = 400
+    prob.driver.opt_settings["constr_viol_tol"] = 1e-6
+    prob.driver.opt_settings["nlp_scaling_method"] = "gradient-based"
+    prob.driver.opt_settings["acceptable_tol"] = 1e-5
+    prob.driver.opt_settings["acceptable_iter"] = 0
+    prob.driver.opt_settings["tol"] = 1e-5
+    prob.driver.opt_settings["mu_strategy"] = "adaptive"
+    prob.driver.opt_settings["corrector_type"] = "affine"
+    prob.driver.opt_settings["limited_memory_max_history"] = 1000
+    prob.driver.opt_settings["corrector_type"] = "primal-dual"
+
     # Add the objective
     prob.model.add_objective(obj["var"], **obj["kwargs"])
 
@@ -193,6 +210,22 @@ def opt_prob(
         prob.model.add_constraint(con["var"], **con["kwargs"])
 
     return prob
+
+
+def add_recorder(prob, filename="data.sql"):
+    """
+    Adds a recorder to the OpenMDAO problem and driver.
+
+    Parameters
+    ----------
+    prob : OpenMDAO Problem
+        Problem that has already been setup (prob.setup() has been called).
+    filename : str
+        Filename for recorder to save to.
+    """
+    recorder = om.SqliteRecorder(filename)
+    prob.add_recorder(recorder)
+    prob.driver.add_recorder(recorder)
 
 
 def set_problem_vars(prob, num_nodes=11):

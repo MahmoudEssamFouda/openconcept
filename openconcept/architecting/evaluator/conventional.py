@@ -1,6 +1,10 @@
 import openmdao.api as om
-from openconcept.architecting.evaluator.analysis_group import opt_prob, set_problem_vars, DynamicKingAirAnalysisGroup
+import os
+import numpy as np
+from openconcept.architecting.evaluator.analysis_group import add_recorder, opt_prob, set_problem_vars, DynamicKingAirAnalysisGroup
 from openconcept.architecting.builder.architecture import *
+
+curDir = os.path.abspath(os.path.dirname(__file__))
 
 prop_arch = PropSysArch(  # Conventional with gearbox
     thrust=ThrustGenElements(
@@ -40,9 +44,19 @@ cons = [
     {"var": "descent.throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
 ]
 
-p = opt_prob(prop_arch=prop_arch, obj=obj, prop_sys_DVs=DVs, prop_sys_cons=cons, model=Analysis)
-p.setup()
-set_problem_vars(p)
-p.run_model()
-om.n2(p, show_browser=False)
+mission_ranges = np.linspace(300, 800, 10)
+results = []  # will have a dictionary containing "fuel burn" and "MTOW" for each mission range
+filepath = os.path.join(curDir, "data", "conventional")
+
+for mission_range in mission_ranges:
+    p = opt_prob(prop_arch=prop_arch, obj=obj, prop_sys_DVs=DVs, prop_sys_cons=cons, model=Analysis, hst_file=os.path.join(filepath, f"range{int(mission_range)}nmi.hst"))
+    add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi.sql"))
+    p.setup()
+    set_problem_vars(p)
+    p.set_val("mission_range", mission_range, units="nmi")
+    p.run_driver()
+    p.record("optimized")
+
+# p.run_model()
+# om.n2(p, show_browser=False)
 # p.run_driver()
