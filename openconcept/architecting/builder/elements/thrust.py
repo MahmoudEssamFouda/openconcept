@@ -50,6 +50,8 @@ THRUST_OUTPUT = 'thrust'
 class Propeller(ArchElement):
     """Represents a propeller for thrust generation."""
 
+    name: str = 'prop'
+
     blades: int = 4
     diameter: float = 2.5  # m
     # power_rating: float = 240  # kW , passed from mech group
@@ -64,6 +66,8 @@ class Propeller(ArchElement):
 class Gearbox(ArchElement):
     """Mechanical reduction gearbox for the propeller. Output RPM is set by the propeller RPM."""
 
+    name: str = 'gearbox'
+
     # input_rpm: float = 5500  # rpm, typical shaft speed input either from engine, motor, or mech bus
     # output_rpm: float = 2000  # rpm, typical shaft speed out to propulsive device, coming from mission group
     # power_rating: float = 240  # kW, passed from engine, motor, or engine+motor
@@ -75,6 +79,14 @@ class ThrustGenElements(ArchSubSystem):
 
     propellers: List[Propeller]
     gearboxes: Optional[List[Optional[Gearbox]]] = None
+
+    def get_dv_defs(self) -> List[Tuple[str, List[str], str, Any]]:
+        diameter_paths = ['thrust%d.diameter' % (i+1,) for i in range(len(self.propellers))]
+        thrust_dvs = [
+            ('prop_diameter', diameter_paths, 'm', self.propellers[0].diameter),
+        ]
+
+        return thrust_dvs
 
     def create_thrust_groups(self, arch: om.Group, nn: int) -> List[om.Group]:
         """

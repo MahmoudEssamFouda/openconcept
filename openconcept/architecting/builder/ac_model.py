@@ -161,6 +161,20 @@ class DynamicACModel(oc.IntegratorGroup):
         ), promotes_inputs=['*'], promotes_outputs=['*'])
 
 
+# class MissionWrapper(om.Group):
+#
+#     def initialize(self):
+#         self.options.declare('mission')
+#
+#     def setup(self):
+#         mission = self.options['mission']
+#         self.add_subsystem('mission', mission)
+#         mission.setup()
+#
+#         inp_comp = ArchSubSystem.create_top_level(self, 'mission', ['climb', 'cruise', 'descent'], 'acmodel.propmodel')
+#         self.set_order([inp_comp.name, 'mission'])
+
+
 if __name__ == '__main__':
     from oad_oc_link.missions.mission_profiles import MissionWithReserve
     from openconcept.analysis.performance.mission_profiles import FullMissionAnalysis
@@ -178,8 +192,13 @@ if __name__ == '__main__':
 
     prob = om.Problem()
     prob.model = grp = om.Group()
-    grp.add_subsystem('mission', FullMissionAnalysis(
+    arch.create_top_level(grp, ['v0v1', 'v1vr', 'rotate', 'v1v0', 'engineoutclimb', 'climb', 'cruise', 'descent'],
+                          'propmodel')
+    grp.add_subsystem('analysis', FullMissionAnalysis(
         num_nodes=11, aircraft_model=DynamicACModel.factory(arch),
     ), promotes_inputs=['*'], promotes_outputs=['*'])
+
+    grp.add_design_var('prop_diameter', 1.5, 2.5)
+
     prob.setup()
     om.n2(prob, show_browser=True)

@@ -49,6 +49,8 @@ ELECTRIC_POWER_OUTPUT = 'motors_elec_power'
 class Engine(ArchElement):
     """Conventional turboshaft engine."""
 
+    name: str = 'turboshaft'
+
     power_rating: float = 260.  # kW
 
     specific_weight: float = .14 / 1000  # kg/kW
@@ -60,6 +62,8 @@ class Engine(ArchElement):
 @dataclass(frozen=False)
 class Motor(ArchElement):
     """Electric motor."""
+
+    name: str = 'motor'
 
     power_rating: float = 260.  # kW
     efficiency: float = .97
@@ -73,6 +77,9 @@ class Motor(ArchElement):
 @dataclass(frozen=False)
 class Inverter(ArchElement):
     """A DC to AC inverter."""
+
+    name: str = 'inverter'
+
     efficiency: float = 0.97
     # power_rating: float = 260.  # kW, passed from electric motor
     specific_weight: float = 1. / (10 * 1000)  # kg/kW
@@ -86,6 +93,8 @@ class MechSplitter(ArchElement):
     """ mech power splitter to divide a power input to two outputs A and B based on a split fraction and
     efficiency loss"""
 
+    name: str = 'mech_splitter'
+
     power_rating: float = 99999999  # 'W', maximum power rating of split component
     efficiency: float = 1.0  # efficiency defines the loss of combining eng+motor shaft power
     split_rule: str = "fraction"  # this sets the rule to always use a fraction between 0 and 1
@@ -94,7 +103,9 @@ class MechSplitter(ArchElement):
 
 @dataclass(frozen=False)
 class MechBus(ArchElement):
-    """electric dc bus"""
+
+    name: str = 'mech_bus'
+
     efficiency: float = 0.95  # efficiency loss to combine eng and motor shaft powers
     rpm_out: float = 6000  # output rpm of the mechanical bus to be connected to gearbox
 
@@ -112,6 +123,14 @@ class MechPowerElements(ArchSubSystem):
     inverters: Optional[Union[Inverter, List[Optional[Inverter]]]] = None
     mech_buses: Optional[Union[MechBus, List[Optional[MechBus]]]] = None
     mech_splitters: Optional[Union[MechSplitter, List[Optional[MechSplitter]]]] = None
+
+    def get_dv_defs(self) -> List[Tuple[str, List[str], str, Any]]:
+        # diameter_paths = ['thrust%d.diameter' % (i+1,) for i in range(len(self.propellers))]
+        mech_dvs = [
+            # ('prop_diameter', diameter_paths, 'm', self.propellers[0].diameter),
+        ]
+
+        return mech_dvs
 
     def create_mech_group(self, arch: om.Group, thrust_groups: List[om.Group], nn: int) -> Tuple[om.Group, bool]:
         """
