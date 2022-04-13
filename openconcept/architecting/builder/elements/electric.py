@@ -118,10 +118,16 @@ class ElectricPowerElements(ArchSubSystem):
     engines_ac: Union[ACEngineChain, List[ACEngineChain]] = None
 
     def get_dv_defs(self) -> List[Tuple[str, List[str], str, Any]]:
-        # diameter_paths = ['thrust%d.diameter' % (i+1,) for i in range(len(self.propellers))]
-        elec_dvs = [
-            # ('prop_diameter', diameter_paths, 'm', self.propellers[0].diameter),
-        ]
+
+        elec_dvs = []
+        if self.batteries is not None and type(self.batteries) != list:
+            battery_paths = ['elec.battery_weight']
+            elec_dvs += ('ac|weights|W_battery', battery_paths, 'kg', self.batteries.weight),
+
+        if self.engines_dc is not None and type(self.engines_dc) != list:
+            elec_eng_paths = ['elec.eng_rating']
+            eng, gen, rect = self.engines_dc
+            elec_dvs += ('ac|propulsion|elec_engine|rating', elec_eng_paths, 'kW', eng.power_rating),
 
         return elec_dvs
 
@@ -239,7 +245,7 @@ class ElectricPowerElements(ArchSubSystem):
                     elec_group.connect(battery_req_power_out, bat.name + '.elec_load')
 
             elec_group.connect(bat_input_map['battery_weight'], bat.name + '.battery_weight')
-            elec_group.connect(input_map[DURATION_INPUT], bat.name + '.duration')
+            # elec_group.connect(input_map[DURATION_INPUT], bat.name + '.duration')
 
         # Add conventional engine chains
         if engine_chains_dc is not None:

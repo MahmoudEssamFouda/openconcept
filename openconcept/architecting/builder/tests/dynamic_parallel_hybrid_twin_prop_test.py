@@ -71,6 +71,7 @@ class DynamicParallelHybridTwinTurbopropTestGroup(om.Group):
         self.add_subsystem('propmodel', DynamicPropulsionArchitecture(num_nodes=nn, architecture=arch),
                            promotes_inputs=propulsion_promotes_inputs,
                            promotes_outputs=propulsion_promotes_outputs)
+        self.connect('duration', 'propmodel.elec.bat_pack.duration')
 
 
 class DynamicParallelHybridTwinTurbopropTestCase(unittest.TestCase):
@@ -78,20 +79,22 @@ class DynamicParallelHybridTwinTurbopropTestCase(unittest.TestCase):
         arch = PropSysArch(  # parallel hybrid with battery
             thrust=ThrustGenElements(
                 propellers=[
-                    Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
-                    Propeller(name='prop2', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
+                    Propeller(name='prop1', blades=4, diameter=2.3),
+                    Propeller(name='prop2', blades=4, diameter=2.3)
                 ],
                 gearboxes=[
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
             mech=MechPowerElements(
-                engines=Engine(
-                    name='turboshaft', power_rating=260, specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
-                    output_rpm=5500),
-                motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
-                             specific_weight=1. / 5000, base_weight=0.,
-                             cost_inc=100.0 / 745.0, cost_base=1.),
+                engines=[
+                    Engine(name='turboshaft', power_rating=260, output_rpm=5500),
+                    Engine(name='turboshaft', power_rating=260, output_rpm=5500)
+                ],
+                motors=[
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500)
+                ],
                 mech_buses=MechBus(name='mech_bus', efficiency=0.95, rpm_out=5500),
                 mech_splitters=MechSplitter(name='mech_splitter', power_rating=99999999, efficiency=1,
                                             split_rule='fraction', mech_DoH=0.5),
@@ -182,20 +185,22 @@ class DynamicParallelHybridTwinTurbopropTestCase(unittest.TestCase):
         arch = PropSysArch(  # parallel hybrid with battery
             thrust=ThrustGenElements(
                 propellers=[
-                    Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
-                    Propeller(name='prop2', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
+                    Propeller(name='prop1', blades=4, diameter=2.3),
+                    Propeller(name='prop2', blades=4, diameter=2.3)
                 ],
                 gearboxes=[
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
             mech=MechPowerElements(
-                engines=Engine(
-                    name='turboshaft', power_rating=260, specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
-                    output_rpm=5500),
-                motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
-                             specific_weight=1. / 5000, base_weight=0.,
-                             cost_inc=100.0 / 745.0, cost_base=1.),
+                engines=[
+                    Engine(name='turboshaft', power_rating=260, output_rpm=5500),
+                    Engine(name='turboshaft', power_rating=260, output_rpm=5500)
+                ],
+                motors=[
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500)
+                ],
                 mech_buses=MechBus(name='mech_bus', efficiency=0.95, rpm_out=5500),
                 mech_splitters=MechSplitter(name='mech_splitter', power_rating=99999999, efficiency=1,
                                             split_rule='fraction', mech_DoH=0.5),
@@ -255,8 +260,8 @@ class DynamicParallelHybridTwinTurbopropTestCase(unittest.TestCase):
         # Note that in parallel hybrid motor efficiency is not considered in the throttle
         assert_near_equal(prob.get_val('thrust', units='N'),
                           ((1 * np.ones(11) * (0.9869106467436468 * 0.9 * 500 * 1000 * 0.95 /
-                                              (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.7905058549964331 /
-                           (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4) +
+                                               (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.7905058549964331 /
+                            (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4) +
                           ((1 * np.ones(11) * (0.978236536229132 * 0.9 * 260 * 1000 * 0.95 /
                                                (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.7834971853978847 /
                             (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4), tolerance=1e-6)

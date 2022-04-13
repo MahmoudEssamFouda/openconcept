@@ -78,17 +78,18 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
         arch = PropSysArch(  # Conventional with gearbox
             thrust=ThrustGenElements(
                 propellers=[
-                    Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
-                    Propeller(name='prop2', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
+                    Propeller(name='prop1', blades=4, diameter=2.3),
+                    Propeller(name='prop2', blades=4, diameter=2.3),
                 ],
                 gearboxes=[
-                    Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
+                    Gearbox(name='gearbox1'), Gearbox(name='gearbox2'),
                 ]
             ),
             mech=MechPowerElements(
-                engines=Engine(
-                    name='turboshaft', power_rating=850 * 0.7457, specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
-                    output_rpm=6000)
+                engines=[
+                    Engine(name='turboshaft', power_rating=850 * 0.7457, output_rpm=6000),
+                    Engine(name='turboshaft', power_rating=850 * 0.7457, output_rpm=6000),
+                ]
             ),
         )
         prob = om.Problem(DynamicConventionalTwinTurbopropTestGroup(vec_size=11, architecture=arch, engine_out=False))
@@ -143,17 +144,18 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
         arch = PropSysArch(  # Conventional with gearbox
             thrust=ThrustGenElements(
                 propellers=[
-                    Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
-                    Propeller(name='prop2', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
+                    Propeller(name='prop1', blades=4, diameter=2.3),
+                    Propeller(name='prop2', blades=4, diameter=2.3),
                 ],
                 gearboxes=[
-                    Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
+                    Gearbox(name='gearbox1'), Gearbox(name='gearbox2'),
                 ]
             ),
             mech=MechPowerElements(
-                engines=Engine(
-                    name='turboshaft', power_rating=850 * 0.7457, specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
-                    output_rpm=6000)
+                engines=[
+                    Engine(name='turboshaft', power_rating=850 * 0.7457, output_rpm=6000),
+                    Engine(name='turboshaft', power_rating=850 * 0.7457, output_rpm=6000),
+                ]
             ),
         )
         prob = om.Problem(DynamicConventionalTwinTurbopropTestGroup(vec_size=11, architecture=arch, engine_out=True))
@@ -212,4 +214,3 @@ class DynamicConventionalTwinTurbopropTestCase(unittest.TestCase):
                                 scaling=False,
                                 hierarchical=False,
                                 print_arrays=True)
-

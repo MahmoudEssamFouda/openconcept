@@ -81,10 +81,10 @@ class ThrustGenElements(ArchSubSystem):
     gearboxes: Optional[List[Optional[Gearbox]]] = None
 
     def get_dv_defs(self) -> List[Tuple[str, List[str], str, Any]]:
-        diameter_paths = ['thrust%d.diameter' % (i+1,) for i in range(len(self.propellers))]
-        thrust_dvs = [
-            ('prop_diameter', diameter_paths, 'm', self.propellers[0].diameter),
-        ]
+        thrust_dvs = []
+        if self.propellers is not None:
+            diameter_paths = ['thrust%d.diameter' % (i + 1,) for i in range(len(self.propellers))]
+            thrust_dvs += ('ac|propulsion|propeller|diameter', diameter_paths, 'm', self.propellers[0].diameter),
 
         return thrust_dvs
 

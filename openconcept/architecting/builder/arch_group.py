@@ -158,30 +158,30 @@ class DynamicPropulsionArchitecture(om.Group):
 
 
 if __name__ == '__main__':
-    # arch = PropSysArch(  # Conventional
+    # arch = PropSysArch(  # Conventional without gearbox
     #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')]),
-    #     mech=MechPowerElements(engines=Engine('turboshaft')),
+    #     mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')]),
     # )
-    #
+    # #
     # arch = PropSysArch(  # Conventional with gearbox
     #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
     #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-    #     mech=MechPowerElements(engines=Engine('turboshaft')),
+    #     mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')]),
     # )
-    #
+    # #
     # arch = PropSysArch(  # All-electric with inverters
     #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
     #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-    #     mech=MechPowerElements(motors=Motor('elec_motor'),
+    #     mech=MechPowerElements(motors=[Motor('elec_motor'), Motor('elec_motor')],
     #                            inverters=Inverter('inverter')),
     #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
     #                                    batteries=Batteries('bat_pack')),
     # )
-
+    #
     # arch = PropSysArch(  # series hybrid with one engine, battery and two motors
     #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
     #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-    #     mech=MechPowerElements(motors=Motor('elec_motor'),
+    #     mech=MechPowerElements(motors=[Motor('elec_motor'), Motor('elec_motor')],
     #                            inverters=Inverter('inverter')),
     #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
     #                                    splitter=ElecSplitter('splitter'),
@@ -189,22 +189,22 @@ if __name__ == '__main__':
     #                                    engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
     #                                                Rectifier(name='rectifier'))),
     # )
-
+    #
     # arch = PropSysArch(  # turboelectric with one engine and two motors
     #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
     #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-    #     mech=MechPowerElements(motors=Motor('elec_motor'),
+    #     mech=MechPowerElements(motors=[Motor('elec_motor'), Motor('elec_motor')],
     #                            inverters=Inverter('inverter')),
     #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
     #                                    engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
     #                                                Rectifier(name='rectifier'))),
     # )
-
+    #
     arch = PropSysArch(  # parallel hybrid system
         thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
                                  gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(engines=Engine('turboshaft'),
-                               motors=Motor('motor'),
+        mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')],
+                               motors=[Motor('motor'), Motor('motor')],
                                mech_buses=MechBus('mech_bus'),
                                mech_splitters=MechSplitter('mech_splitter'),
                                inverters=Inverter('inverter')),

@@ -103,6 +103,7 @@ class DynamicACModel(oc.IntegratorGroup):
     def factory(cls, architecture: PropSysArch):
         def _factory(num_nodes=1, flight_phase=None):
             return cls(num_nodes=num_nodes, flight_phase=flight_phase, architecture=architecture)
+
         return _factory
 
     def initialize(self):
@@ -158,7 +159,7 @@ class DynamicACModel(oc.IntegratorGroup):
             'seg_fuel_used', om.ExecComp(['seg_fuel_used=sum(fuel_used)'],
                                          seg_fuel_used={'val': 1.0, 'units': 'kg'},
                                          fuel_used={'val': np.ones((nn,)), 'units': 'kg'},
-        ), promotes_inputs=['*'], promotes_outputs=['*'])
+                                         ), promotes_inputs=['*'], promotes_outputs=['*'])
 
 
 # class MissionWrapper(om.Group):
@@ -179,16 +180,59 @@ if __name__ == '__main__':
     from oad_oc_link.missions.mission_profiles import MissionWithReserve
     from openconcept.analysis.performance.mission_profiles import FullMissionAnalysis
 
-    # arch = PropSysArch(  # Conventional
+    # arch = PropSysArch(  # Conventional without gearbox
     #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')]),
-    #     mech=MechPowerElements(engines=Engine('turboshaft')),
+    #     mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')]),
     # )
-
-    arch = PropSysArch(  # Conventional with gearbox
+    # #
+    # arch = PropSysArch(  # Conventional with gearbox
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')]),
+    # )
+    # #
+    # arch = PropSysArch(  # All-electric with inverters
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(motors=[Motor('elec_motor'), Motor('elec_motor')],
+    #                            inverters=Inverter('inverter')),
+    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+    #                                    batteries=Batteries('bat_pack')),
+    # )
+    #
+    arch = PropSysArch(  # series hybrid with one engine, battery and two motors
         thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
                                  gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(engines=Engine('turboshaft')),
+        mech=MechPowerElements(motors=[Motor('elec_motor'), Motor('elec_motor')],
+                               inverters=Inverter('inverter')),
+        electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+                                       splitter=ElecSplitter('splitter'),
+                                       batteries=Batteries('bat_pack'),
+                                       engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
+                                                   Rectifier(name='rectifier'))),
     )
+    #
+    # arch = PropSysArch(  # turboelectric with one engine and two motors
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(motors=[Motor('elec_motor'), Motor('elec_motor')],
+    #                            inverters=Inverter('inverter')),
+    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+    #                                    engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
+    #                                                Rectifier(name='rectifier'))),
+    # )
+    #
+    # arch = PropSysArch(  # parallel hybrid system
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')],
+    #                            motors=[Motor('motor'), Motor('motor')],
+    #                            mech_buses=MechBus('mech_bus'),
+    #                            mech_splitters=MechSplitter('mech_splitter'),
+    #                            inverters=Inverter('inverter')),
+    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+    #                                    batteries=Batteries('bat_pack')),
+    # )
 
     prob = om.Problem()
     prob.model = grp = om.Group()
@@ -198,7 +242,10 @@ if __name__ == '__main__':
         num_nodes=11, aircraft_model=DynamicACModel.factory(arch),
     ), promotes_inputs=['*'], promotes_outputs=['*'])
 
-    grp.add_design_var('prop_diameter', 1.5, 2.5)
+    # grp.add_design_var('ac|propulsion|mech_engine|rating', lower=50, upper=2000)
+    grp.add_design_var('ac|propulsion|motor|rating', lower=50, upper=2000)
+    grp.add_design_var('ac|weights|W_battery', lower=100, upper=3000)
+    grp.add_design_var('ac|propulsion|elec_engine|rating', lower=50, upper=2000)
 
     prob.setup()
     om.n2(prob, show_browser=True)
