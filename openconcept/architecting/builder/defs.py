@@ -24,6 +24,7 @@ Contact: jasper.bussemaker@dlr.de
          mahmoud.fouda@dlr.de
 """
 
+from typing import *
 from dataclasses import dataclass
 
 __all__ = ['ArchElement', 'ArchSubSystem', 'WEIGHT_OUTPUT', 'DURATION_INPUT', 'FLTCOND_RHO_INPUT', 'FLTCOND_TAS_INPUT']
@@ -47,3 +48,6 @@ class ArchElement:
 
 class ArchSubSystem:
     """Base class for a subdivision of the propsulsion system architecture."""
+
+    def get_dv_defs(self) -> List[Tuple[str, List[str], str, Any]]:  # (key, paths, unit, default_val)
+        raise NotImplementedError

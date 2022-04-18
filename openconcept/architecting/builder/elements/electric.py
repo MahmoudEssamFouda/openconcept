@@ -43,13 +43,18 @@ SOC_OUTPUT = 'SOC'
 
 @dataclass(frozen=False)
 class DCBus(ArchElement):
-    """electric dc bus"""
+
+    name: str = 'dc_bus'
+
     efficiency: float = 0.99  #
 
 
 @dataclass(frozen=False)
 class ElecSplitter(ArchElement):
     """power splitter to divide a power input to two outputs A and B based on a split fraction and efficiency loss"""
+
+    name: str = 'elec_splitter'
+
     power_rating: float = 99999999  # 'W', maximum power rating of split component
     efficiency: float = 1.0  # always keep as 1, apply required efficiency in DC Bus component
     split_rule: str = "fraction"  # this sets the rule to always use a fraction between 0 and 1
@@ -59,6 +64,8 @@ class ElecSplitter(ArchElement):
 @dataclass(frozen=False)
 class Batteries(ArchElement):
     """Battery pack."""
+
+    name: str = 'battery'
 
     weight: float = 1000.  # kg
     specific_power: float = 5000  # W/kg
@@ -72,6 +79,8 @@ class Batteries(ArchElement):
 class Generator(ArchElement):
     """An AC electric power generator."""
 
+    name: str = 'generator'
+
     efficiency: float = 0.97
     # power_rating: float = 260.  # kW, passed from engine inside the engine chain
     specific_weight: float = 1. / 5000  # kg/kW
@@ -83,6 +92,9 @@ class Generator(ArchElement):
 @dataclass(frozen=False)
 class Rectifier(ArchElement):
     """An AC to DC rectifier."""
+
+    name: str = 'rectifier'
+
     efficiency: float = 0.97
     # power_rating: float = 260.  # kW, passed from engine inside the engine chain
     specific_weight: float = 1. / (10 * 1000)  # kg/kW
@@ -104,6 +116,20 @@ class ElectricPowerElements(ArchSubSystem):
     batteries: Union[Batteries, List[Batteries]] = None
     engines_dc: Union[DCEngineChain, List[DCEngineChain]] = None
     engines_ac: Union[ACEngineChain, List[ACEngineChain]] = None
+
+    def get_dv_defs(self) -> List[Tuple[str, List[str], str, Any]]:
+
+        elec_dvs = []
+        if self.batteries is not None and type(self.batteries) != list:
+            battery_paths = ['elec.battery_weight']
+            elec_dvs += ('ac|weights|W_battery', battery_paths, 'kg', self.batteries.weight),
+
+        if self.engines_dc is not None and type(self.engines_dc) != list:
+            elec_eng_paths = ['elec.eng_rating']
+            eng, gen, rect = self.engines_dc
+            elec_dvs += ('ac|propulsion|elec_engine|rating', elec_eng_paths, 'kW', eng.power_rating),
+
+        return elec_dvs
 
     def create_electric_group(self, arch: om.Group, mech_power_group: om.Group,
                               thrust_groups: List[om.Group], nn: int) -> om.Group:
@@ -219,7 +245,7 @@ class ElectricPowerElements(ArchSubSystem):
                     elec_group.connect(battery_req_power_out, bat.name + '.elec_load')
 
             elec_group.connect(bat_input_map['battery_weight'], bat.name + '.battery_weight')
-            elec_group.connect(input_map[DURATION_INPUT], bat.name + '.duration')
+            # elec_group.connect(input_map[DURATION_INPUT], bat.name + '.duration')
 
         # Add conventional engine chains
         if engine_chains_dc is not None:

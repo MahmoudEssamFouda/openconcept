@@ -71,6 +71,7 @@ class DynamicElectricTwinTurbopropTestGroup(om.Group):
         self.add_subsystem('propmodel', DynamicPropulsionArchitecture(num_nodes=nn, architecture=arch),
                            promotes_inputs=propulsion_promotes_inputs,
                            promotes_outputs=propulsion_promotes_outputs)
+        self.connect('duration', 'propmodel.elec.bat_pack.duration')
 
 
 class DynamicElectricTwinTurbopropTestCase(unittest.TestCase):
@@ -78,19 +79,20 @@ class DynamicElectricTwinTurbopropTestCase(unittest.TestCase):
         arch = PropSysArch(  # all Electric with gearbox and inverter
             thrust=ThrustGenElements(
                 propellers=[
-                    Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
-                    Propeller(name='prop2', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
+                    Propeller(name='prop1', blades=4, diameter=2.3),
+                    Propeller(name='prop2', blades=4, diameter=2.3),
                 ],
                 gearboxes=[
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
-            mech=MechPowerElements(motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
-                                                specific_weight=1. / 5000, base_weight=0.,
-                                                cost_inc=100.0 / 745.0, cost_base=1.),
-                                   inverters=Inverter(name='inverter', efficiency=0.97,
-                                                      specific_weight=1. / (10 * 1000), base_weight=0.,
-                                                      cost_inc=100.0 / 745.0, cost_base=1.)),
+            mech=MechPowerElements(
+                motors=[
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                ],
+                inverters=Inverter(name='inverter', efficiency=0.97)
+            ),
 
             electric=ElectricPowerElements(dc_bus=DCBus(name='elec_bus', efficiency=0.99),
                                            batteries=Batteries(name='bat_pack', weight=1000, efficiency=0.97,
@@ -158,19 +160,20 @@ class DynamicElectricTwinTurbopropTestCase(unittest.TestCase):
         arch = PropSysArch(  # all Electric with gearbox and inverter
             thrust=ThrustGenElements(
                 propellers=[
-                    Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
-                    Propeller(name='prop2', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
+                    Propeller(name='prop1', blades=4, diameter=2.3),
+                    Propeller(name='prop2', blades=4, diameter=2.3),
                 ],
                 gearboxes=[
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
-            mech=MechPowerElements(motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
-                                                specific_weight=1. / 5000, base_weight=0.,
-                                                cost_inc=100.0 / 745.0, cost_base=1.),
-                                   inverters=Inverter(name='inverter', efficiency=0.97,
-                                                      specific_weight=1. / (10 * 1000), base_weight=0.,
-                                                      cost_inc=100.0 / 745.0, cost_base=1.)),
+            mech=MechPowerElements(
+                motors=[
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                ],
+                inverters=Inverter(name='inverter', efficiency=0.97)
+            ),
 
             electric=ElectricPowerElements(dc_bus=DCBus(name='elec_bus', efficiency=0.99),
                                            batteries=Batteries(name='bat_pack', weight=1000, efficiency=0.97,

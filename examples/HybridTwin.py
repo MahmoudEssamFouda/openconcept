@@ -4,7 +4,7 @@ import os
 import logging
 import numpy as np
 sys.path.insert(0, os.getcwd())
-from openmdao.api import Problem, Group, ScipyOptimizeDriver
+from openmdao.api import Problem, Group, ScipyOptimizeDriver, n2
 from openmdao.api import BalanceComp, ExplicitComponent, ExecComp, SqliteRecorder
 from openmdao.api import DirectSolver, IndepVarComp, NewtonSolver, BoundsEnforceLS
 
@@ -209,6 +209,7 @@ def run_hybrid_twin_analysis(plots=False):
     prob.setup(check=False)
     prob['cruise.hybridization'] = 0.05840626452293813
     set_values(prob, 11, 500, 450)
+    n2(prob, show_browser=True)
     prob.run_model()
     if plots:
         show_outputs(prob)
@@ -264,7 +265,7 @@ if __name__ == "__main__":
 
     if run_type == 'example':
         # runs a default analysis-only mission (no optimization)
-        run_hybrid_twin_analysis(plots=True)
+        run_hybrid_twin_analysis(plots=False)
 
     else:
         # can run a sweep of design range and spec energy (not tested)

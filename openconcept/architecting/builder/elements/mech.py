@@ -49,7 +49,9 @@ ELECTRIC_POWER_OUTPUT = 'motors_elec_power'
 class Engine(ArchElement):
     """Conventional turboshaft engine."""
 
-    power_rating: float = 560.  # kW
+    name: str = 'turboshaft'
+
+    power_rating: float = 260.  # kW
 
     specific_weight: float = .14 / 1000  # kg/kW
     base_weight: float = 104  # kg
@@ -60,6 +62,8 @@ class Engine(ArchElement):
 @dataclass(frozen=False)
 class Motor(ArchElement):
     """Electric motor."""
+
+    name: str = 'motor'
 
     power_rating: float = 260.  # kW
     efficiency: float = .97
@@ -73,6 +77,9 @@ class Motor(ArchElement):
 @dataclass(frozen=False)
 class Inverter(ArchElement):
     """A DC to AC inverter."""
+
+    name: str = 'inverter'
+
     efficiency: float = 0.97
     # power_rating: float = 260.  # kW, passed from electric motor
     specific_weight: float = 1. / (10 * 1000)  # kg/kW
@@ -86,6 +93,8 @@ class MechSplitter(ArchElement):
     """ mech power splitter to divide a power input to two outputs A and B based on a split fraction and
     efficiency loss"""
 
+    name: str = 'mech_splitter'
+
     power_rating: float = 99999999  # 'W', maximum power rating of split component
     efficiency: float = 1.0  # efficiency defines the loss of combining eng+motor shaft power
     split_rule: str = "fraction"  # this sets the rule to always use a fraction between 0 and 1
@@ -94,7 +103,9 @@ class MechSplitter(ArchElement):
 
 @dataclass(frozen=False)
 class MechBus(ArchElement):
-    """electric dc bus"""
+
+    name: str = 'mech_bus'
+
     efficiency: float = 0.95  # efficiency loss to combine eng and motor shaft powers
     rpm_out: float = 6000  # output rpm of the mechanical bus to be connected to gearbox
 
@@ -105,13 +116,25 @@ class MechPowerElements(ArchSubSystem):
     is generated near the propellers, and therefore the local sub-architecture of the mechanical elements is replicated
     for each propeller."""
 
-    # Either specify one element to be replicated for each propeller,
-    # or specify a list of elements to distribute over the propellers
-    engines: Optional[Union[Engine, List[Optional[Engine]]]] = None
-    motors: Optional[Union[Motor, List[Optional[Motor]]]] = None
+    # specify a list of elements to distribute over the propellers
+    # for inverters, mech_bus and splitter, it is possible to specify one element to be replicated for each propeller,
+    engines: Optional[List[Optional[Engine]]] = None  # must be a list of engines
+    motors: Optional[List[Optional[Motor]]] = None  # must be a list of motors
     inverters: Optional[Union[Inverter, List[Optional[Inverter]]]] = None
     mech_buses: Optional[Union[MechBus, List[Optional[MechBus]]]] = None
     mech_splitters: Optional[Union[MechSplitter, List[Optional[MechSplitter]]]] = None
+
+    def get_dv_defs(self) -> List[Tuple[str, List[str], str, Any]]:
+        mech_dvs = []
+        if self.engines is not None and type(self.engines) == list:
+            eng_rating_paths = ['mech.mech%d.eng_rating' % (i+1,) for i in range(len(self.engines))]
+            mech_dvs += ('ac|propulsion|mech_engine|rating', eng_rating_paths, 'kW', self.engines[0].power_rating),
+
+        if self.motors is not None and type(self.motors) == list:
+            motor_rating_paths = ['mech.mech%d.motor_rating' % (i + 1,) for i in range(len(self.motors))]
+            mech_dvs += ('ac|propulsion|motor|rating', motor_rating_paths, 'kW', self.motors[0].power_rating),
+
+        return mech_dvs
 
     def create_mech_group(self, arch: om.Group, thrust_groups: List[om.Group], nn: int) -> Tuple[om.Group, bool]:
         """
@@ -129,6 +152,32 @@ class MechPowerElements(ArchSubSystem):
         mech_buses = self.mech_buses
         mech_splitters = self.mech_splitters
 
+        # check engines and motor inputs are passed as lists with n_thrust members
+        if engines is not None:
+            if type(engines) != list:
+                raise ValueError("engines must be a list of engines")
+            else:
+                if len(engines) != n_thrust:
+                    raise ValueError("list of engines must be of the same length as list of propellers")
+                else:
+                    if len(engines) == 1:
+                        engines = engines[0]
+                    elif len(engines) < 1:
+                        raise ValueError("engines list cannot be empty")
+
+        if motors is not None:
+            if type(motors) != list:
+                raise ValueError("motors must be a list of motors")
+            else:
+                if len(motors) != n_thrust:
+                    raise ValueError("list of motors must have the same length as list of propellers")
+                else:
+                    if len(motors) == 1:
+                        motors = motors[0]
+                    elif len(motors) < 1:
+                        raise ValueError("motors list cannot be empty")
+
+        # prepare inputs for processing
         if engines is None or isinstance(engines, Engine):
             engines = [engines for _ in range(n_thrust)]
         if motors is None or isinstance(motors, Motor):

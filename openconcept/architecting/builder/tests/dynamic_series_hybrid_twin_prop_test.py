@@ -71,6 +71,7 @@ class DynamicSeriesHybridTwinTurbopropTestGroup(om.Group):
         self.add_subsystem('propmodel', DynamicPropulsionArchitecture(num_nodes=nn, architecture=arch),
                            promotes_inputs=propulsion_promotes_inputs,
                            promotes_outputs=propulsion_promotes_outputs)
+        self.connect('duration', 'propmodel.elec.bat_pack.duration')
 
 
 class DynamicSeriesHybridTwinTurbopropTestCase(unittest.TestCase):
@@ -85,12 +86,14 @@ class DynamicSeriesHybridTwinTurbopropTestCase(unittest.TestCase):
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
-            mech=MechPowerElements(motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
-                                                specific_weight=1. / 5000, base_weight=0.,
-                                                cost_inc=100.0 / 745.0, cost_base=1.),
-                                   inverters=Inverter(name='inverter', efficiency=0.97,
-                                                      specific_weight=1. / (10 * 1000), base_weight=0.,
-                                                      cost_inc=100.0 / 745.0, cost_base=1.)),
+            mech=MechPowerElements(
+                motors=[
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500)
+                ],
+                inverters=Inverter(name='inverter', efficiency=0.97,
+                                   specific_weight=1. / (10 * 1000), base_weight=0.,
+                                   cost_inc=100.0 / 745.0, cost_base=1.)),
 
             electric=ElectricPowerElements(dc_bus=DCBus(name='elec_bus', efficiency=0.99),
                                            splitter=ElecSplitter(name='splitter', efficiency=1, split_rule='fraction',
@@ -193,7 +196,7 @@ class DynamicSeriesHybridTwinTurbopropTestCase(unittest.TestCase):
                            (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4, tolerance=1e-6)
 
         # check SOC after duration
-        elec_load_test = (((2 * 0.9 * 240 * 1000) / 0.97) / 0.99)*0.6
+        elec_load_test = (((2 * 0.9 * 240 * 1000) / 0.97) / 0.99) * 0.6
         dsocdt_test = -elec_load_test / (300 * 1000 * 60 * 60)
         soc_final_test = 1 + (300 * dsocdt_test)
         assert_near_equal(prob.get_val('SOC', units=None)[-1], soc_final_test, tolerance=1e-6)
@@ -227,12 +230,14 @@ class DynamicSeriesHybridTwinTurbopropTestCase(unittest.TestCase):
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
-            mech=MechPowerElements(motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
-                                                specific_weight=1. / 5000, base_weight=0.,
-                                                cost_inc=100.0 / 745.0, cost_base=1.),
-                                   inverters=Inverter(name='inverter', efficiency=0.97,
-                                                      specific_weight=1. / (10 * 1000), base_weight=0.,
-                                                      cost_inc=100.0 / 745.0, cost_base=1.)),
+            mech=MechPowerElements(
+                motors=[
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500)
+                ],
+                inverters=Inverter(name='inverter', efficiency=0.97,
+                                   specific_weight=1. / (10 * 1000), base_weight=0.,
+                                   cost_inc=100.0 / 745.0, cost_base=1.)),
 
             electric=ElectricPowerElements(dc_bus=DCBus(name='elec_bus', efficiency=0.99),
                                            splitter=ElecSplitter(name='splitter', efficiency=1, split_rule='fraction',
@@ -335,7 +340,7 @@ class DynamicSeriesHybridTwinTurbopropTestCase(unittest.TestCase):
                            (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4, tolerance=1e-6)
 
         # check SOC after duration, should be half
-        elec_load_test = (((1 * 0.9 * 240 * 1000) / 0.97) / 0.99)*0.6
+        elec_load_test = (((1 * 0.9 * 240 * 1000) / 0.97) / 0.99) * 0.6
         dsocdt_test = -elec_load_test / (300 * 1000 * 60 * 60)
         soc_final_test = 1 + (300 * dsocdt_test)
         assert_near_equal(prob.get_val('SOC', units=None)[-1], soc_final_test, tolerance=1e-6)

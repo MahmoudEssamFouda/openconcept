@@ -26,6 +26,7 @@ Contact: jasper.bussemaker@dlr.de
 
 from typing import *
 from dataclasses import dataclass
+from openconcept.architecting.builder.utils import *
 
 from openconcept.architecting.builder.defs import *
 from openconcept.architecting.builder.elements.thrust import *
@@ -78,6 +79,27 @@ class PropSysArch:
     thrust: ThrustGenElements
     mech: MechPowerElements
     electric: Optional[ElectricPowerElements] = None
+
+    def get_dv_defs(self):
+        dvs = self.thrust.get_dv_defs()+self.mech.get_dv_defs()
+        if self.electric is not None:
+            dvs += self.electric.get_dv_defs()
+        return dvs
+
+    def create_top_level(self, grp, mission_segments, prop_sys_path):
+        dv_defs = self.get_dv_defs()
+
+        # Create main input collect
+        inp_comp, input_map = collect_inputs(grp, [
+            (key, unit, default_value) for (key, _, unit, default_value) in dv_defs],
+                                             name='propmodel_top_level')
+
+        # Connect to lower-level inputs
+        for segment in mission_segments:
+            for (key, paths, _, _) in dv_defs:
+                for dv_path in paths:
+                    grp.connect(input_map[key], '.'.join([segment, prop_sys_path, dv_path]).strip('.'))
+        return inp_comp
 
     def __eq__(self, other):
         return hash(self) == hash(other)

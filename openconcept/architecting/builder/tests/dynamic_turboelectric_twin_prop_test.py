@@ -85,15 +85,17 @@ class DynamicTurboelectricTwinTurbopropTestCase(unittest.TestCase):
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
-            mech=MechPowerElements(motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
-                                                specific_weight=1. / 5000, base_weight=0.,
-                                                cost_inc=100.0 / 745.0, cost_base=1.),
-                                   inverters=Inverter(name='inverter', efficiency=0.97,
-                                                      specific_weight=1. / (10 * 1000), base_weight=0.,
-                                                      cost_inc=100.0 / 745.0, cost_base=1.)),
+            mech=MechPowerElements(
+                motors=[
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500)
+                ],
+                inverters=Inverter(name='inverter', efficiency=0.97,
+                                   specific_weight=1. / (10 * 1000), base_weight=0.,
+                                   cost_inc=100.0 / 745.0, cost_base=1.)),
 
             electric=ElectricPowerElements(dc_bus=DCBus(name='elec_bus', efficiency=0.99),
-                                           engines_dc=(Engine(name='turboshaft', power_rating=260,
+                                           engines_dc=(Engine(name='turboshaft', power_rating=600,
                                                               specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
                                                               output_rpm=6000),
                                                        Generator(name='generator', efficiency=0.97,
@@ -139,15 +141,15 @@ class DynamicTurboelectricTwinTurbopropTestCase(unittest.TestCase):
         # check fuel flow for hybrid system
         unknown_throttle = prob.get_val('propmodel.elec.turboshaft_throttle_set.turboshaft_throttle')
         assert_near_equal(prob.get_val('fuel_flow', units='kg/s'),
-                          unknown_throttle * 260 * 1000 * 0.6 * 1.68965774e-7, tolerance=1e-6)
+                          unknown_throttle * 600 * 1000 * 0.6 * 1.68965774e-7, tolerance=1e-6)
 
         # # # check weight components and sum
         assert_near_equal(prob.get_val('propmodel.elec.turboshaft.component_weight', units='kg'),
-                          260 * 1000 * 0.14 / 1000 + 104, tolerance=1e-6)
+                          600 * 1000 * 0.14 / 1000 + 104, tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.elec.generator.component_weight', units='kg'),
-                          260 * 1000 * 1. / 5000 + 0., tolerance=1e-6)
+                          600 * 1000 * 1. / 5000 + 0., tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.elec.rectifier.component_weight', units='kg'),
-                          260 * 1000 * 1. / (10 * 1000) + 0., tolerance=1e-6)
+                          600 * 1000 * 1. / (10 * 1000) + 0., tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.mech.mech1.elec_motor.component_weight', units='kg'),
                           240 * 1000 * 1. / 5000 + 0., tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.mech.mech1.inverter.component_weight', units='kg'),
@@ -159,9 +161,9 @@ class DynamicTurboelectricTwinTurbopropTestCase(unittest.TestCase):
                           26 * (240 ** 0.76) * (5500 ** 0.13) / (1900 ** 0.89), tolerance=1e-6)
         # 1 m = 3.28084 ft
         assert_near_equal(prob.get_val('propulsion_system_weight', units='kg'),
-                          (260 * 1000 * 0.14 / 1000 + 104) +
-                          (260 * 1000 * 1. / 5000 + 0.260 * 1000 * 1. / 5000 + 0.) +
-                          (260 * 1000 * 1. / (10 * 1000) + 0.) +
+                          (600 * 1000 * 0.14 / 1000 + 104) +
+                          (600 * 1000 * 1. / 5000 + 0.260 * 1000 * 1. / 5000 + 0.) +
+                          (600 * 1000 * 1. / (10 * 1000) + 0.) +
                           2 * (240 * 1000 * 1. / 5000 + 0) +
                           2 * (240 * 1000 * 1. / (10 * 1000) + 0.) +
                           2 * 0.453592 * (0.108 * (2.3 * 3.28 * 240 * 1.34102 * (4 ** 0.5)) ** 0.782) +
@@ -198,7 +200,7 @@ class DynamicTurboelectricTwinTurbopropTestCase(unittest.TestCase):
                                 print_arrays=True)
 
     def test_nondefault_settings(self):  # test one motor inoperative
-        arch = PropSysArch(  # Series Hybrid Electric with gearbox,  inverter, dc_bus, splitter, and engine chain
+        arch = PropSysArch(  # Turboelectric with one engine and two motors
             thrust=ThrustGenElements(
                 propellers=[
                     Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
@@ -208,15 +210,17 @@ class DynamicTurboelectricTwinTurbopropTestCase(unittest.TestCase):
                     Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
                 ]
             ),
-            mech=MechPowerElements(motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
-                                                specific_weight=1. / 5000, base_weight=0.,
-                                                cost_inc=100.0 / 745.0, cost_base=1.),
-                                   inverters=Inverter(name='inverter', efficiency=0.97,
-                                                      specific_weight=1. / (10 * 1000), base_weight=0.,
-                                                      cost_inc=100.0 / 745.0, cost_base=1.)),
+            mech=MechPowerElements(
+                motors=[
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500),
+                    Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500)
+                ],
+                inverters=Inverter(name='inverter', efficiency=0.97,
+                                   specific_weight=1. / (10 * 1000), base_weight=0.,
+                                   cost_inc=100.0 / 745.0, cost_base=1.)),
 
             electric=ElectricPowerElements(dc_bus=DCBus(name='elec_bus', efficiency=0.99),
-                                           engines_dc=(Engine(name='turboshaft', power_rating=260,
+                                           engines_dc=(Engine(name='turboshaft', power_rating=600,
                                                               specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
                                                               output_rpm=6000),
                                                        Generator(name='generator', efficiency=0.97,
@@ -262,15 +266,15 @@ class DynamicTurboelectricTwinTurbopropTestCase(unittest.TestCase):
         # check fuel flow for hybrid system
         unknown_throttle = prob.get_val('propmodel.elec.turboshaft_throttle_set.turboshaft_throttle')
         assert_near_equal(prob.get_val('fuel_flow', units='kg/s'),
-                          unknown_throttle * 260 * 1000 * 0.6 * 1.68965774e-7, tolerance=1e-6)
+                          unknown_throttle * 600 * 1000 * 0.6 * 1.68965774e-7, tolerance=1e-6)
 
         # # # check weight components and sum
         assert_near_equal(prob.get_val('propmodel.elec.turboshaft.component_weight', units='kg'),
-                          260 * 1000 * 0.14 / 1000 + 104, tolerance=1e-6)
+                          600 * 1000 * 0.14 / 1000 + 104, tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.elec.generator.component_weight', units='kg'),
-                          260 * 1000 * 1. / 5000 + 0., tolerance=1e-6)
+                          600 * 1000 * 1. / 5000 + 0., tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.elec.rectifier.component_weight', units='kg'),
-                          260 * 1000 * 1. / (10 * 1000) + 0., tolerance=1e-6)
+                          600 * 1000 * 1. / (10 * 1000) + 0., tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.mech.mech1.elec_motor.component_weight', units='kg'),
                           240 * 1000 * 1. / 5000 + 0., tolerance=1e-6)
         assert_near_equal(prob.get_val('propmodel.mech.mech1.inverter.component_weight', units='kg'),
@@ -282,9 +286,9 @@ class DynamicTurboelectricTwinTurbopropTestCase(unittest.TestCase):
                           26 * (240 ** 0.76) * (5500 ** 0.13) / (1900 ** 0.89), tolerance=1e-6)
         # 1 m = 3.28084 ft
         assert_near_equal(prob.get_val('propulsion_system_weight', units='kg'),
-                          (260 * 1000 * 0.14 / 1000 + 104) +
-                          (260 * 1000 * 1. / 5000 + 0.260 * 1000 * 1. / 5000 + 0.) +
-                          (260 * 1000 * 1. / (10 * 1000) + 0.) +
+                          (600 * 1000 * 0.14 / 1000 + 104) +
+                          (600 * 1000 * 1. / 5000 + 0.260 * 1000 * 1. / 5000 + 0.) +
+                          (600 * 1000 * 1. / (10 * 1000) + 0.) +
                           2 * (240 * 1000 * 1. / 5000 + 0) +
                           2 * (240 * 1000 * 1. / (10 * 1000) + 0.) +
                           2 * 0.453592 * (0.108 * (2.3 * 3.28 * 240 * 1.34102 * (4 ** 0.5)) ** 0.782) +
