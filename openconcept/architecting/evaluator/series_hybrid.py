@@ -1,5 +1,6 @@
 import openmdao.api as om
 import os
+from pathlib import Path
 from copy import deepcopy
 import pickle as pkl
 import numpy as np
@@ -41,6 +42,7 @@ for seg_con in seg_cons:
 
 curDir = os.path.abspath(os.path.dirname(__file__))
 filepath = os.path.join(curDir, "data", "series_hybrid")
+Path(filepath).mkdir(parents=True, exist_ok=True)
 
 mission_ranges = np.linspace(300, 800, 2)
 spec_energies = np.linspace(300, 800, 2)

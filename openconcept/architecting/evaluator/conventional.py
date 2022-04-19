@@ -1,5 +1,6 @@
 import openmdao.api as om
 import os
+from pathlib import Path
 import numpy as np
 import pickle as pkl
 from openconcept.architecting.evaluator.analysis_group import (
@@ -34,6 +35,7 @@ cons = [
 
 curDir = os.path.abspath(os.path.dirname(__file__))
 filepath = os.path.join(curDir, "data", "conventional")
+Path(filepath).mkdir(parents=True, exist_ok=True)
 
 mission_ranges = np.linspace(300, 800, 10)
 spec_energies = np.linspace(300, 800, 10)
