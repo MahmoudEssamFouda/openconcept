@@ -73,10 +73,10 @@ for mission_range in mission_ranges:
     results[-1]["fuel burn"] = p.get_val("descent.fuel_used_final", units="kg").item()
     # Jet A specific energy is 11.95 kWh/kg
     results[-1]["fuel energy"] = 11.95 * p.get_val("descent.fuel_used_final", units="kg").item()
-    results[-1]["battery energy"] = 0.0
-    results[-1]["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
-    results[-1]["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
+    results["battery energy"] = 0.0
+    results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
+    results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
 
-with open(os.path.join(filepath, "results_conventional.pkl"), "wb") as f:
-    pkl.dump(results, f, protocol=pkl.HIGHEST_PROTOCOL)
-print(results)
+    with open(os.path.join(filepath, f"range{int(mission_range)}nmi.pkl"), "wb") as f:
+        pkl.dump(results, f, protocol=pkl.HIGHEST_PROTOCOL)
+    print(results)

@@ -86,11 +86,11 @@ for mission_range in mission_ranges:
         results[-1]["battery specific energy"] = e_batt
         results[-1]["fuel burn"] = 0.0
         results[-1]["fuel energy"] = 0.0
-        results[-1]["battery energy"] = 1. - p.get_val("descent.propmodel.elec.bat_pack.SOC_final").item()
-        results[-1]["battery energy"] *= e_batt * p.get_val("ac|weights|W_battery", units="kg")
-        results[-1]["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
-        results[-1]["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
+        results["battery energy"] = 1. - p.get_val("descent.propmodel.elec.bat_pack.SOC_final").item()
+        results["battery energy"] *= e_batt / 1e3 * p.get_val("ac|weights|W_battery", units="kg").item()
+        results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
+        results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
 
-with open(os.path.join(filepath, "results_electric.pkl"), "wb") as f:
-    pkl.dump(results, f, protocol=pkl.HIGHEST_PROTOCOL)
-print(results)
+        with open(os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.pkl"), "wb") as f:
+            pkl.dump(results, f, protocol=pkl.HIGHEST_PROTOCOL)
+        print(results)
