@@ -28,7 +28,9 @@ class DynamicKingAirAnalysisGroup(om.Group):
                 propellers=[Propeller("prop1"), Propeller("prop2")],
                 gearboxes=[Gearbox("gearbox1"), Gearbox("gearbox2")],
             ),
-            mech=MechPowerElements(engines=Engine("turboshaft", power_rating=560.0)),
+            mech=MechPowerElements(
+                engines=[Engine("turboshaft", power_rating=560.0), Engine("turboshaft", power_rating=560.0)]
+            ),
         )
         self.options.declare(name="prop_arch", default=arch, types=PropSysArch, desc="Propulsion system architecture")
         self.options.declare(name="num_nodes", default=11, desc="Number of integration points per flight segment")
@@ -62,7 +64,7 @@ class DynamicKingAirAnalysisGroup(om.Group):
         dv_comp.add_output_from_dict("ac|weights|MLW")
         dv_comp.add_output_from_dict("ac|weights|W_fuel_max")
 
-        self.add_subsystem(
+        mission = self.add_subsystem(
             "mission",
             FullMissionAnalysis(
                 num_nodes=11,
@@ -70,6 +72,10 @@ class DynamicKingAirAnalysisGroup(om.Group):
             ),
             promotes_inputs=["*"],
             promotes_outputs=["*"],
+        )
+
+        self.options["prop_arch"].create_top_level(
+            mission, ["v0v1", "v1vr", "rotate", "v1v0", "engineoutclimb", "climb", "cruise", "descent"], "propmodel"
         )
 
         # Compute MTOW - fuel burn - ZFW (OEW and payload) residual to be used as a constraint in the
@@ -150,7 +156,9 @@ def opt_prob(
                 propellers=[Propeller("prop1"), Propeller("prop2")],
                 gearboxes=[Gearbox("gearbox1"), Gearbox("gearbox2")],
             ),
-            mech=MechPowerElements(engines=Engine("turboshaft", power_rating=560.0)),
+            mech=MechPowerElements(
+                engines=[Engine("turboshaft", power_rating=560.0), Engine("turboshaft", power_rating=560.0)]
+            ),
         )
     if "kwargs" not in obj:
         obj["kwargs"] = {}
@@ -163,7 +171,7 @@ def opt_prob(
 
     prob = om.Problem()
     prob.model = model(num_nodes=num_nodes, prop_arch=prop_arch)
-    prob.model.nonlinear_solver = om.NewtonSolver(iprint=2, err_on_non_converge=False)
+    prob.model.nonlinear_solver = om.NewtonSolver(iprint=2, err_on_non_converge=True)
     prob.model.nonlinear_solver.linesearch = om.BoundsEnforceLS(print_bound_enforce=False)
     prob.model.options["assembled_jac_type"] = "csc"
     prob.model.linear_solver = om.DirectSolver(assemble_jac=True)
@@ -196,7 +204,7 @@ def opt_prob(
     # Use the optimizer to solve for initial weight (called MTOW here) by having initial
     # weight as a design variable and preventing the final weight from being less than
     # the zero fuel weight (OEW + payload)
-    prob.model.add_design_var("ac|weights|MTOW", lower=2e3, ref=5e3)
+    prob.model.add_design_var("ac|weights|MTOW", lower=1e3, ref=5e3)
     prob.model.add_constraint("TOW_margin.residual", lower=0.0)
 
     # Balanced field length must be at least as good as baseline
@@ -241,8 +249,8 @@ def set_problem_vars(prob, num_nodes=11):
         Number of numerical integration points per flight segment, by default 11.
     """
     # Set required mission parameters
-    prob.set_val("ac|weights|MTOW", 10099., units="lb")
-    prob.set_val("ac|propulsion|engine|rating", 560., units="kW")
+    prob.set_val("ac|weights|MTOW", 10099.0, units="lb")
+    prob.set_val("ac|propulsion|engine|rating", 560.0, units="kW")
     prob.set_val("climb.fltcond|vs", np.ones((num_nodes,)) * 1500, units="ft/min")
     prob.set_val("climb.fltcond|Ueas", np.ones((num_nodes,)) * 124, units="kn")
     prob.set_val("cruise.fltcond|vs", np.ones((num_nodes,)) * 0.01, units="ft/min")

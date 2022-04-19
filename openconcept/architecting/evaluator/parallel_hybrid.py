@@ -1,51 +1,103 @@
 import openmdao.api as om
-from openconcept.architecting.evaluator.analysis_group import opt_prob, set_problem_vars
+import os
+from copy import deepcopy
+import pickle as pkl
+import numpy as np
+from openconcept.architecting.evaluator.analysis_group import (
+    add_recorder,
+    opt_prob,
+    set_problem_vars,
+    DynamicKingAirAnalysisGroup,
+)
 from openconcept.architecting.builder.architecture import *
 
-prop_arch = PropSysArch(  # parallel hybrid with battery
-    thrust=ThrustGenElements(
-        propellers=[
-            Propeller(name='prop1', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55),
-            Propeller(name='prop2', blades=4, diameter=2.3, design_adv_ratio=2.2, design_cp=0.55)
-        ],
-        gearboxes=[
-            Gearbox(name='gearbox1'), Gearbox(name='gearbox2')
-        ]
-    ),
-    mech=MechPowerElements(
-        engines=Engine(
-            name='turboshaft', power_rating=260, specific_weight=.14 / 1000, base_weight=104, psfc=0.6,
-            output_rpm=5500),
-        motors=Motor(name='elec_motor', power_rating=240, efficiency=0.97, output_rpm=5500,
-                        specific_weight=1. / 5000, base_weight=0.,
-                        cost_inc=100.0 / 745.0, cost_base=1.),
-        mech_buses=MechBus(name='mech_bus', efficiency=0.95, rpm_out=5500),
-        mech_splitters=MechSplitter(name='mech_splitter', power_rating=99999999, efficiency=1,
-                                    split_rule='fraction', mech_DoH=0.5),
-        inverters=Inverter(name='inverter', efficiency=0.97,
-                            specific_weight=1. / (10 * 1000), base_weight=0.,
-                            cost_inc=100.0 / 745.0, cost_base=1.)
-    ),
-
-    electric=ElectricPowerElements(dc_bus=DCBus(name='elec_bus', efficiency=0.99),
-                                    batteries=Batteries(name='bat_pack', weight=1000, efficiency=0.97,
-                                                        specific_power=5000, specific_energy=300,
-                                                        cost_inc=50., cost_base=1.)),
-)
-
+# TODO: add DVs/constraints to properly size other electrical propulsion system components
+#       (for example, the inverter) so they can handle the electrical power
 # obj = {"var": "descent.fuel_used_final"}
 obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
-    {"var": "ac|propulsion|engine|rating", "kwargs": {"lower": 200, "upper": 1e3, "ref": 5e2, "units": "kW"}}
+    {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 0.1, "ref": 5e2, "units": "kW"}},
+    {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 0.1, "ref": 5e2, "units": "kW"}},
+    {"var": "ac|weights|W_battery", "kwargs": {"lower": 0.1, "ref": 1e3, "units": "kg"}}
 ]
-cons = [
-    {"var": "climb.throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
-    {"var": "cruise.throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
-    {"var": "descent.throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
+# Constraints to be enforced at every flight segment; full variable name will be
+# <mission segment>.<var name>
+seg_cons = [
+    {"var": "throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
+    {"var": "propmodel.elec.bat_pack.SOC", "kwargs": {"lower": 0.0}},
+    {"var": "propmodel.mech.mech1.turboshaft.component_sizing_margin", "kwargs": {"upper": 1.0}},
+    {"var": "propmodel.mech.mech2.turboshaft.component_sizing_margin", "kwargs": {"upper": 1.0}},
+    {"var": "propmodel.mech.mech1.motor.component_sizing_margin", "kwargs": {"upper": 1.0}},
+    {"var": "propmodel.mech.mech2.motor.component_sizing_margin", "kwargs": {"upper": 1.0}},
 ]
 
-p = opt_prob(prop_arch=prop_arch, obj=obj, prop_sys_DVs=DVs, prop_sys_cons=cons)
-p.setup()
-set_problem_vars(p)
-p.run_driver()
+# Generate constraints necessary for every mission segment
+segments = ["v0v1", "v1vr", "rotate", "v1v0", "engineoutclimb", "climb", "cruise", "descent"]
+cons = []
+for seg_con in seg_cons:
+    for seg in segments:
+        cons.append(deepcopy(seg_con))
+        cons[-1]["var"] = ".".join((seg, cons[-1]["var"]))
+
+curDir = os.path.abspath(os.path.dirname(__file__))
+filepath = os.path.join(curDir, "data", "parallel_hybrid")
+
+mission_ranges = np.linspace(300, 800, 2)
+spec_energies = np.linspace(300, 800, 2)
+# Will have a dictionary containing:
+#       "range" (nmi)
+#       "battery specific energy" (Wh/kg)
+#       "fuel burn" (kg)
+#       "fuel energy" (kWh)
+#       "battery energy" (kWh)
+#       "MTOW" (kg)
+#       "mixed objective" (kg, fuel burn + MTOW / 100)
+results = []
+
+for mission_range in mission_ranges:
+    for e_batt in spec_energies:
+        prop_arch = PropSysArch(  # parallel hybrid system
+            thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+                                     gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+            mech=MechPowerElements(engines=[Engine('turboshaft', power_rating=250), Engine('turboshaft', power_rating=250)],
+                                   motors=[Motor('motor', power_rating=250), Motor('motor', power_rating=250)],
+                                   mech_buses=MechBus('mech_bus'),
+                                   mech_splitters=MechSplitter('mech_splitter'),
+                                   inverters=Inverter('inverter')),
+            electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+                                           batteries=Batteries('bat_pack', weight=5e2, specific_energy=e_batt)),
+        )
+
+        p = opt_prob(
+            prop_arch=prop_arch,
+            obj=obj,
+            prop_sys_DVs=DVs,
+            prop_sys_cons=cons,
+            model=DynamicKingAirAnalysisGroup,
+            hst_file=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.hst"),
+        )
+        add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
+        p.setup()
+        set_problem_vars(p)
+        p.set_val("mission_range", mission_range, units="nmi")
+        p.run_driver()
+        p.record("optimized")
+        om.n2(p, show_browser=False, outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}_n2.html"))
+
+        # Set values in the results vector
+        results.append({})
+        results[-1]["range"] = mission_range
+        results[-1]["battery specific energy"] = e_batt
+        results[-1]["fuel burn"] = p.get_val("descent.fuel_used_final", units="kg").item()
+        # Jet A specific energy is 11.95 kWh/kg
+        results[-1]["fuel energy"] = 11.95 * p.get_val("descent.fuel_used_final", units="kg").item()
+        results[-1]["battery energy"] = 1. - p.get_val("descent.propmodel.elec.bat_pack.SOC_final").item()
+        results[-1]["battery energy"] *= e_batt * p.get_val("ac|weights|W_battery", units="kg")
+        results[-1]["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
+        results[-1]["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
+        print(results[-1])
+
+with open(os.path.join(filepath, "results_parallel_hybrid.pkl"), "wb") as f:
+    pkl.dump(results, f, protocol=pkl.HIGHEST_PROTOCOL)
+print(results)
