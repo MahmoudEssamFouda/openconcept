@@ -156,6 +156,15 @@ class DynamicPropulsionArchitecture(om.Group):
         # Define order to reduce feedback connections
         self.set_order(order)
 
+        # self.nonlinear_solver = om.NewtonSolver(iprint=2, err_on_non_converge=False)
+        # self.nonlinear_solver.linesearch = om.BoundsEnforceLS(print_bound_enforce=True)
+        # self.options["assembled_jac_type"] = "csc"
+        # self.linear_solver = om.DirectSolver(assemble_jac=True)
+        # self.nonlinear_solver.options["solve_subsystems"] = False
+        # self.nonlinear_solver.options["maxiter"] = 15
+        # self.nonlinear_solver.options["atol"] = 1e-4
+        # self.nonlinear_solver.options["rtol"] = 1e-4
+
 
 if __name__ == '__main__':
     # arch = PropSysArch(  # Conventional without gearbox

@@ -184,19 +184,26 @@ def opt_prob(
     # prob.driver = om.ScipyOptimizeDriver(optimizer="SLSQP", maxiter=200, tol=1e-8, disp=True)
     # prob.driver.options["debug_print"] = ["objs", "desvars", "nl_cons"]
 
-    prob.driver = om.pyOptSparseDriver(optimizer="IPOPT")
+    prob.driver = om.pyOptSparseDriver(optimizer="SNOPT")
     prob.driver.hist_file = hst_file
     prob.driver.options["debug_print"] = ["objs", "desvars", "nl_cons"]
-    prob.driver.opt_settings["max_iter"] = 400
-    prob.driver.opt_settings["constr_viol_tol"] = 1e-6
-    prob.driver.opt_settings["nlp_scaling_method"] = "gradient-based"
-    prob.driver.opt_settings["acceptable_tol"] = 1e-5
-    prob.driver.opt_settings["acceptable_iter"] = 0
-    prob.driver.opt_settings["tol"] = 1e-5
-    prob.driver.opt_settings["mu_strategy"] = "adaptive"
-    prob.driver.opt_settings["corrector_type"] = "affine"
-    prob.driver.opt_settings["limited_memory_max_history"] = 1000
-    prob.driver.opt_settings["corrector_type"] = "primal-dual"
+    prob.driver.opt_settings["Major iterations limit"] = 400
+    prob.driver.opt_settings["Major feasibility tolerance"] = 1e-6
+    prob.driver.opt_settings["Major optimality tolerance"] = 1e-5
+
+    # prob.driver = om.pyOptSparseDriver(optimizer="IPOPT")
+    # prob.driver.hist_file = hst_file
+    # prob.driver.options["debug_print"] = ["objs", "desvars", "nl_cons"]
+    # prob.driver.opt_settings["max_iter"] = 400
+    # prob.driver.opt_settings["constr_viol_tol"] = 1e-6
+    # prob.driver.opt_settings["nlp_scaling_method"] = "gradient-based"
+    # prob.driver.opt_settings["acceptable_tol"] = 1e-5
+    # prob.driver.opt_settings["acceptable_iter"] = 0
+    # prob.driver.opt_settings["tol"] = 1e-5
+    # prob.driver.opt_settings["mu_strategy"] = "adaptive"
+    # prob.driver.opt_settings["corrector_type"] = "affine"
+    # prob.driver.opt_settings["limited_memory_max_history"] = 1000
+    # prob.driver.opt_settings["corrector_type"] = "primal-dual"
 
     # Add the objective
     prob.model.add_objective(obj["var"], **obj["kwargs"])

@@ -45,30 +45,21 @@ curDir = os.path.abspath(os.path.dirname(__file__))
 filepath = os.path.join(curDir, "data", "parallel_hybrid")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
-mission_ranges = np.linspace(300, 800, 2)
-spec_energies = np.linspace(300, 800, 2)
-# Will have a dictionary containing:
-#       "range" (nmi)
-#       "battery specific energy" (Wh/kg)
-#       "fuel burn" (kg)
-#       "fuel energy" (kWh)
-#       "battery energy" (kWh)
-#       "MTOW" (kg)
-#       "mixed objective" (kg, fuel burn + MTOW / 100)
-results = []
+mission_ranges = np.linspace(300, 800, 5)
+spec_energies = np.linspace(300, 800, 5)
 
 for mission_range in mission_ranges:
     for e_batt in spec_energies:
         prop_arch = PropSysArch(  # parallel hybrid system
             thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
                                      gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-            mech=MechPowerElements(engines=[Engine('turboshaft', power_rating=250), Engine('turboshaft', power_rating=250)],
-                                   motors=[Motor('motor', power_rating=250), Motor('motor', power_rating=250)],
+            mech=MechPowerElements(engines=[Engine('turboshaft', power_rating=400), Engine('turboshaft', power_rating=400)],
+                                   motors=[Motor('motor', power_rating=400), Motor('motor', power_rating=400)],
                                    mech_buses=MechBus('mech_bus'),
-                                   mech_splitters=MechSplitter('mech_splitter'),
+                                   mech_splitters=MechSplitter('mech_splitter', mech_DoH=0.5),
                                    inverters=Inverter('inverter')),
             electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
-                                           batteries=Batteries('bat_pack', weight=5e2, specific_energy=e_batt)),
+                                           batteries=Batteries('bat_pack', weight=1e3, specific_energy=e_batt)),
         )
 
         p = opt_prob(
@@ -88,12 +79,20 @@ for mission_range in mission_ranges:
         om.n2(p, show_browser=False, outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}_n2.html"))
 
         # Set values in the results vector
-        results.append({})
-        results[-1]["range"] = mission_range
-        results[-1]["battery specific energy"] = e_batt
-        results[-1]["fuel burn"] = p.get_val("descent.fuel_used_final", units="kg").item()
+        # Will have a dictionary containing:
+        #       "range" (nmi)
+        #       "battery specific energy" (Wh/kg)
+        #       "fuel burn" (kg)
+        #       "fuel energy" (kWh)
+        #       "battery energy" (kWh)
+        #       "MTOW" (kg)
+        #       "mixed objective" (kg, fuel burn + MTOW / 100)
+        results = {}
+        results["range"] = mission_range
+        results["battery specific energy"] = e_batt
+        results["fuel burn"] = p.get_val("descent.fuel_used_final", units="kg").item()
         # Jet A specific energy is 11.95 kWh/kg
-        results[-1]["fuel energy"] = 11.95 * p.get_val("descent.fuel_used_final", units="kg").item()
+        results["fuel energy"] = 11.95 * p.get_val("descent.fuel_used_final", units="kg").item()
         results["battery energy"] = 1. - p.get_val("descent.propmodel.elec.bat_pack.SOC_final").item()
         results["battery energy"] *= e_batt / 1e3 * p.get_val("ac|weights|W_battery", units="kg").item()
         results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
