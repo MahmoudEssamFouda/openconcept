@@ -42,17 +42,8 @@ curDir = os.path.abspath(os.path.dirname(__file__))
 filepath = os.path.join(curDir, "data", "turboelectric")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
-mission_ranges = np.linspace(300, 800, 2)
-spec_energies = np.linspace(300, 800, 2)
-# Will have a dictionary containing:
-#       "range" (nmi)
-#       "battery specific energy" (Wh/kg, None)
-#       "fuel burn" (kg)
-#       "fuel energy" (kWh)
-#       "battery energy" (kWh)
-#       "MTOW" (kg)
-#       "mixed objective" (kg, fuel burn + MTOW / 100)
-results = []
+mission_ranges = np.linspace(300, 800, 10)
+spec_energies = np.linspace(300, 800, 10)
 
 for mission_range in mission_ranges:
     prop_arch = PropSysArch(  # turboelectric with one engine and two motors
@@ -82,13 +73,21 @@ for mission_range in mission_ranges:
     om.n2(p, show_browser=False, outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_n2.html"))
 
     # Set values in the results vector
-    results.append({})
-    results[-1]["range"] = mission_range
-    results[-1]["battery specific energy"] = None
-    results[-1]["fuel burn"] = p.get_val("descent.fuel_used_final", units="kg").item()
+    # Will have a dictionary containing:
+    #       "range" (nmi)
+    #       "battery specific energy" (Wh/kg, None)
+    #       "fuel burn" (kg)
+    #       "fuel energy" (kWh)
+    #       "battery energy" (kWh)
+    #       "MTOW" (kg)
+    #       "mixed objective" (kg, fuel burn + MTOW / 100)
+    results = {}
+    results["range"] = mission_range
+    results["battery specific energy"] = None
+    results["fuel burn"] = p.get_val("descent.fuel_used_final", units="kg").item()
     # Jet A specific energy is 11.95 kWh/kg
-    results[-1]["fuel energy"] = 11.95 * p.get_val("descent.fuel_used_final", units="kg").item()
-    results[-1]["battery energy"] = 0.0
+    results["fuel energy"] = 11.95 * p.get_val("descent.fuel_used_final", units="kg").item()
+    results["battery energy"] = 0.0
     results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
     results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
 

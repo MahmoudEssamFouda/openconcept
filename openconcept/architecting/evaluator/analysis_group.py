@@ -190,6 +190,9 @@ def opt_prob(
     prob.driver.opt_settings["Major iterations limit"] = 400
     prob.driver.opt_settings["Major feasibility tolerance"] = 1e-6
     prob.driver.opt_settings["Major optimality tolerance"] = 1e-5
+    prefix = "".join(hst_file.split(".")[:-1])
+    prob.driver.opt_settings["Print file"] = f"{prefix}_SNOPT_print.out"
+    prob.driver.opt_settings["Summary file"] = f"{prefix}_SNOPT_summary.out"
 
     # prob.driver = om.pyOptSparseDriver(optimizer="IPOPT")
     # prob.driver.hist_file = hst_file
