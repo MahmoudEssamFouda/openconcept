@@ -26,16 +26,17 @@ DVs = [
 # <mission segment>.<var name>
 seg_cons = [
     {"var": "throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
-    {"var": "propmodel.elec.bat_pack.SOC", "kwargs": {"lower": 0.0}},
     {"var": "propmodel.mech.mech1.turboshaft.component_sizing_margin", "kwargs": {"upper": 1.0}},
     {"var": "propmodel.mech.mech2.turboshaft.component_sizing_margin", "kwargs": {"upper": 1.0}},
     {"var": "propmodel.mech.mech1.motor.component_sizing_margin", "kwargs": {"upper": 1.0}},
     {"var": "propmodel.mech.mech2.motor.component_sizing_margin", "kwargs": {"upper": 1.0}},
 ]
+cons = [  # constraints that are enforce at a single variable
+    {"var": "descent.propmodel.elec.bat_pack.SOC_final", "kwargs": {"lower": 0.0}},
+]
 
 # Generate constraints necessary for every mission segment
 segments = ["v0v1", "v1vr", "rotate", "v1v0", "engineoutclimb", "climb", "cruise", "descent"]
-cons = []
 for seg_con in seg_cons:
     for seg in segments:
         cons.append(deepcopy(seg_con))
@@ -45,18 +46,21 @@ curDir = os.path.abspath(os.path.dirname(__file__))
 filepath = os.path.join(curDir, "data", "parallel_hybrid")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
-mission_ranges = np.linspace(300, 800, 5)
-spec_energies = np.linspace(300, 800, 5)
+mission_ranges = np.linspace(300, 800, 10)
+spec_energies = np.linspace(300, 800, 10)
+
+mission_ranges = np.array([mission_ranges[9]])
+spec_energies = spec_energies[-1::-1]
 
 for mission_range in mission_ranges:
     for e_batt in spec_energies:
         prop_arch = PropSysArch(  # parallel hybrid system
             thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
                                      gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-            mech=MechPowerElements(engines=[Engine('turboshaft', power_rating=400), Engine('turboshaft', power_rating=400)],
-                                   motors=[Motor('motor', power_rating=400), Motor('motor', power_rating=400)],
+            mech=MechPowerElements(engines=[Engine('turboshaft', power_rating=250), Engine('turboshaft', power_rating=250)],
+                                   motors=[Motor('motor', power_rating=250), Motor('motor', power_rating=250)],
                                    mech_buses=MechBus('mech_bus'),
-                                   mech_splitters=MechSplitter('mech_splitter', mech_DoH=0.5),
+                                   mech_splitters=MechSplitter('mech_splitter', mech_DoH=0.4),
                                    inverters=Inverter('inverter')),
             electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
                                            batteries=Batteries('bat_pack', weight=1e3, specific_energy=e_batt)),
@@ -70,9 +74,10 @@ for mission_range in mission_ranges:
             model=DynamicKingAirAnalysisGroup,
             hst_file=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.hst"),
         )
+        p.model.set_input_defaults("ac|weights|W_battery", val=1e3, units="kg")
         add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
         p.setup()
-        set_problem_vars(p)
+        set_problem_vars(p, e_batt=e_batt)
         p.set_val("mission_range", mission_range, units="nmi")
         p.run_driver()
         p.record("optimized")

@@ -68,9 +68,10 @@ for mission_range in mission_ranges:
             model=DynamicKingAirAnalysisGroup,
             hst_file=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.hst"),
         )
+        p.model.set_input_defaults("ac|weights|W_battery", val=5e5/e_batt, units="kg")
         add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
         p.setup()
-        set_problem_vars(p)
+        set_problem_vars(p, e_batt=e_batt)
         # p.set_val("ac|weights|MTOW", val=5750., units="kg")
         p.set_val("mission_range", mission_range, units="nmi")
         # p.run_model()

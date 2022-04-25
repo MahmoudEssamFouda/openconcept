@@ -9,8 +9,9 @@ from openconcept.architecting.builder.architecture import (
     Gearbox,
     Engine,
 )
+from openconcept.utilities.math import ElementMultiplyDivideComp
 from openconcept.architecting.builder.ac_model import DynamicACModel
-from openconcept.analysis.performance.mission_profiles import FullMissionAnalysis, BasicMission
+from openconcept.analysis.performance.mission_profiles import FullMissionAnalysis
 from examples.aircraft_data.KingAirC90GT import data as acdata
 
 
@@ -43,7 +44,7 @@ class DynamicKingAirAnalysisGroup(om.Group):
         dv_comp.add_output_from_dict("ac|aero|polar|e")
         dv_comp.add_output_from_dict("ac|aero|polar|CD0_TO")
         dv_comp.add_output_from_dict("ac|aero|polar|CD0_cruise")
-        dv_comp.add_output_from_dict("ac|geom|wing|S_ref")
+        # dv_comp.add_output_from_dict("ac|geom|wing|S_ref")
         dv_comp.add_output_from_dict("ac|geom|wing|AR")
         dv_comp.add_output_from_dict("ac|geom|wing|c4sweep")
         dv_comp.add_output_from_dict("ac|geom|wing|taper")
@@ -63,6 +64,21 @@ class DynamicKingAirAnalysisGroup(om.Group):
         dv_comp.add_output_from_dict("ac|weights|MTOW")
         dv_comp.add_output_from_dict("ac|weights|MLW")
         dv_comp.add_output_from_dict("ac|weights|W_fuel_max")
+
+        # Wing loading of the King Air (kg/m^2)
+        wing_loading = acdata["ac"]["weights"]["MTOW"]["value"] / acdata["ac"]["geom"]["wing"]["S_ref"]["value"]
+        self.add_subsystem(
+            "wing_area",
+            ElementMultiplyDivideComp(
+                output_name="ac|geom|wing|S_ref",
+                input_names=["ac|weights|MTOW", "wing_loading"],
+                input_units=["kg", "kg/m**2"],
+                divide=[False, True],
+            ),
+            promotes_inputs=["ac|weights|MTOW"],
+            promotes_outputs=["ac|geom|wing|S_ref"],
+        )
+        self.set_input_defaults("wing_area.wing_loading", val=wing_loading, units="kg/m**2")
 
         mission = self.add_subsystem(
             "mission",
@@ -98,6 +114,9 @@ class DynamicKingAirAnalysisGroup(om.Group):
         )
         self.connect("descent.fuel_used_final", "aug_obj.fuel_burn")
 
+        self.add_subsystem("energy", EnergyObjective(), promotes_inputs=[("W_battery", "ac|weights|W_battery")], promotes_outputs=["energy_used"])
+        self.connect("descent.fuel_used_final", "energy.fuel_burn")
+
 
 class AugmentedFBObjective(om.ExplicitComponent):
     def setup(self):
@@ -109,6 +128,25 @@ class AugmentedFBObjective(om.ExplicitComponent):
 
     def compute(self, inputs, outputs):
         outputs["mixed_objective"] = inputs["fuel_burn"] + inputs["ac|weights|MTOW"] / 100
+
+
+class EnergyObjective(om.ExplicitComponent):
+    def initialize(self):
+        self.options.declare("e_fuel", default=11.95e3, desc="Specific energy of Jet A-1 (Wh/kg)")
+    def setup(self):
+        self.add_input("fuel_burn", units="kg")
+        self.add_input("W_battery", val=0., units="kg")
+        self.add_input("e_battery", val=300., units="W*h/kg")
+        self.add_output("energy_used", units="W*h")
+        self.declare_partials(["energy_used"], ["fuel_burn", "W_battery", "e_battery"])
+
+    def compute(self, inputs, outputs):
+        outputs["energy_used"] = inputs["fuel_burn"] * self.options["e_fuel"] + inputs["W_battery"] * inputs["e_battery"]
+    
+    def compute_partials(self, inputs, J):
+        J["energy_used", "fuel_burn"] = self.options["e_fuel"]
+        J["energy_used", "W_battery"] = inputs["e_battery"]
+        J["energy_used", "e_battery"] = inputs["W_battery"]
 
 
 def opt_prob(
@@ -246,7 +284,7 @@ def add_recorder(prob, filename="data.sql"):
     prob.driver.add_recorder(recorder)
 
 
-def set_problem_vars(prob, num_nodes=11):
+def set_problem_vars(prob, num_nodes=11, e_batt=300.):
     """
     Sets mission profile and payload values. Also sets takeoff speed
     guesses (to improve convergence) and takeoff throttles.
@@ -257,6 +295,8 @@ def set_problem_vars(prob, num_nodes=11):
         Problem that has already been setup (prob.setup() has been called).
     num_nodes : int
         Number of numerical integration points per flight segment, by default 11.
+    e_batt : float
+        Specific energy of batteries (Wh/kg), by default 300.
     """
     # Set required mission parameters
     prob.set_val("ac|weights|MTOW", 10099.0, units="lb")
@@ -281,6 +321,9 @@ def set_problem_vars(prob, num_nodes=11):
     prob.set_val("v0v1.throttle", np.ones((num_nodes)) * 0.75)
     prob.set_val("v1vr.throttle", np.ones((num_nodes)) * 0.75)
     prob.set_val("rotate.throttle", np.ones((num_nodes)) * 0.75)
+
+    # Set battery specific energy for energy objective
+    prob.set_val("energy.e_battery", e_batt, units="W*h/kg")
 
 
 if __name__ == "__main__":

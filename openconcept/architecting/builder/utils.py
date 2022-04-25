@@ -110,7 +110,7 @@ def throttle_from_power_balance(group: om.Group, power_req: str = None, power_av
     balancer_rhs_name = 'power_req'
     balancer_lhs_name = 'power_avail'
     balancer = om.BalanceComp(balancer_output, val=np.ones((n,)) * 0.5, units=None, eq_units=units,
-                              rhs_name=balancer_rhs_name, lhs_name=balancer_lhs_name, lower=0.0, upper=1.05)
+                              rhs_name=balancer_rhs_name, lhs_name=balancer_lhs_name, lower=0.0, upper=1.5)
 
     balancer_comp = group.add_subsystem(balancer_name, balancer)
     group.connect(power_req, balancer_name + '.' + balancer_rhs_name)
