@@ -4,7 +4,8 @@ import numpy as np
 import os
 
 curDir = os.path.abspath(os.path.dirname(__file__))
-filepath = os.path.join(curDir, "data", "series_hybrid")
+arch = "electric"
+filepath = os.path.join(curDir, "data", arch)
 
 mission_ranges = np.linspace(300, 800, 10)
 spec_energies = np.linspace(300, 800, 10)
@@ -38,4 +39,4 @@ plt.xlabel("Battery specific energy (Wh/kg)")
 plt.ylabel("Mission range (nmi)")
 plt.colorbar()
 plt.title("fuel burn + MTOW / 100 (kg)")
-plt.savefig(os.path.join(filepath, "series_hybrid.pdf"))
+plt.savefig(os.path.join(filepath, f"{arch}.pdf"))

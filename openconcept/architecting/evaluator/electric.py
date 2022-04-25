@@ -41,8 +41,11 @@ curDir = os.path.abspath(os.path.dirname(__file__))
 filepath = os.path.join(curDir, "data", "electric")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
-mission_ranges = np.linspace(300, 800, 2)
-spec_energies = np.linspace(300, 800, 2)
+mission_ranges = np.linspace(300, 800, 10)
+spec_energies = np.linspace(300, 800, 10)
+
+mission_ranges = np.array([mission_ranges[9]])
+spec_energies = spec_energies[-1::-1]
 
 for mission_range in mission_ranges:
     for e_batt in spec_energies:
@@ -53,7 +56,7 @@ for mission_range in mission_ranges:
             ),
             mech=MechPowerElements(motors=[Motor("elec_motor", power_rating=600), Motor("elec_motor", power_rating=600)], inverters=Inverter("inverter")),
             electric=ElectricPowerElements(
-                dc_bus=DCBus("elec_bus"), batteries=Batteries("bat_pack", weight=7e5/e_batt, specific_energy=e_batt)
+                dc_bus=DCBus("elec_bus"), batteries=Batteries("bat_pack", weight=5e5/e_batt, specific_energy=e_batt)
             ),
         )
 
@@ -65,13 +68,14 @@ for mission_range in mission_ranges:
             model=DynamicKingAirAnalysisGroup,
             hst_file=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.hst"),
         )
-        # add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
+        add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
         p.setup()
         set_problem_vars(p)
-        # p.set_val("ac|weights|MTOW", val=4.5e3, units="kg")
+        # p.set_val("ac|weights|MTOW", val=5750., units="kg")
         p.set_val("mission_range", mission_range, units="nmi")
+        # p.run_model()
         p.run_driver()
-        # p.record("optimized")
+        p.record("optimized")
         om.n2(p, show_browser=False, outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}_n2.html"))
 
         # Set values in the results vector
