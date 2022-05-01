@@ -134,6 +134,12 @@ class MechPowerElements(ArchSubSystem):
             motor_rating_paths = ['mech.mech%d.motor_rating' % (i + 1,) for i in range(len(self.motors))]
             mech_dvs += ('ac|propulsion|motor|rating', motor_rating_paths, 'kW', self.motors[0].power_rating),
 
+        if self.engines is not None and self.motors is not None:
+            if self.mech_splitters is not None:
+                mech_doh_paths = ['mech.mech%d.mech_DoH' % (i + 1,) for i in range(len(self.engines))]
+                mech_dvs += ('ac|propulsion|mech_splitter|mech_DoH', mech_doh_paths, None,
+                             self.mech_splitters.mech_DoH),
+
         return mech_dvs
 
     def create_mech_group(self, arch: om.Group, thrust_groups: List[om.Group], nn: int) -> Tuple[om.Group, bool]:
@@ -335,8 +341,16 @@ class MechPowerElements(ArchSubSystem):
                 # add splitter
                 # Define design params for splitter
                 _, splitter_input_map = collect_inputs(mech_thrust_group, [
-                    ('mech_DoH', None, np.ones(nn) * mech_splitter.mech_DoH),
+                    ('mech_DoH', None, mech_splitter.mech_DoH),
                 ], name='splitter_in_collect')
+
+                # expand DoH to vector
+                mech_thrust_group.add_subsystem('expand_DoH', ExpandComponent(vars=[
+                    ('mech_DoH_scalar', 'mech_DoH_vector', nn, None),
+                ]
+                ),)
+                mech_thrust_group.connect(splitter_input_map['mech_DoH'],
+                                          'expand_DoH' + '.mech_DoH_scalar')
 
                 if i == 1:
                     # add get split fraction component for OEI
@@ -348,7 +362,7 @@ class MechPowerElements(ArchSubSystem):
                         mech_DoH_vec={'val': np.ones(nn)},
                     )
                     mech_thrust_group.add_subsystem('get_split_fraction', subsys=get_split_fraction)
-                    mech_thrust_group.connect(splitter_input_map['mech_DoH'],
+                    mech_thrust_group.connect('expand_DoH' + '.mech_DoH_vector',
                                               'get_split_fraction' + '.mech_DoH_vec')
                     mech_group.connect(input_map[ACTIVE_INPUT],
                                        mech_thrust_group.name + '.get_split_fraction' + '.active_flag_vec')
@@ -361,7 +375,7 @@ class MechPowerElements(ArchSubSystem):
                     mech_thrust_group.connect('get_split_fraction' + '.split_fraction_vec',
                                               split.name + '.power_split_fraction')
                 else:  # use input map to connect to split fraction
-                    mech_thrust_group.connect(splitter_input_map['mech_DoH'], split.name + '.power_split_fraction')
+                    mech_thrust_group.connect('expand_DoH' + '.mech_DoH_vector', split.name + '.power_split_fraction')
 
                 # connect shaft power input to splitter
                 mech_thrust_group.connect('eng_motor_shaft_power' + '.tot_shaft_power',
