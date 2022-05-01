@@ -43,7 +43,6 @@ SOC_OUTPUT = 'SOC'
 
 @dataclass(frozen=False)
 class DCBus(ArchElement):
-
     name: str = 'dc_bus'
 
     efficiency: float = 0.99  #
@@ -129,6 +128,10 @@ class ElectricPowerElements(ArchSubSystem):
             eng, gen, rect = self.engines_dc
             elec_dvs += ('ac|propulsion|elec_engine|rating', elec_eng_paths, 'kW', eng.power_rating),
 
+        if self.splitter is not None:
+            elec_doh_paths = ['elec.elec_DoH']
+            elec_dvs += ('ac|propulsion|elec_splitter|elec_DoH', elec_doh_paths, None, self.splitter.elec_DoH),
+
         return elec_dvs
 
     def create_electric_group(self, arch: om.Group, mech_power_group: om.Group,
@@ -203,13 +206,22 @@ class ElectricPowerElements(ArchSubSystem):
                 else:
                     # Define design params for splitter
                     _, splitter_input_map = collect_inputs(elec_group, [
-                        ('elec_DoH', None, np.ones(nn) * splitter.elec_DoH),
+                        ('elec_DoH', None, splitter.elec_DoH),
                     ], name='splitter_in_collect')
+
+                    # expand DoH to vector
+                    elec_group.add_subsystem('expand_DoH', ExpandComponent(vars=[
+                        ('elec_DoH_scalar', 'elec_DoH_vector', nn, None),
+                    ]
+                    ), )
+                    elec_group.connect(splitter_input_map['elec_DoH'],
+                                       'expand_DoH' + '.elec_DoH_scalar')
+
                     split = elec_group.add_subsystem(
                         splitter.name, PowerSplit(num_nodes=nn, efficiency=splitter.efficiency,
                                                   rule=splitter.split_rule))
 
-                    elec_group.connect(splitter_input_map['elec_DoH'], split.name + '.power_split_fraction')
+                    elec_group.connect('expand_DoH' + '.elec_DoH_vector', split.name + '.power_split_fraction')
                     elec_group.connect(bus.name + '.elec_power_in', split.name + '.power_in')
                     # define require power outputs
                     battery_req_power_out = '.'.join([split.name, 'power_out_A'])

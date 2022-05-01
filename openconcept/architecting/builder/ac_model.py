@@ -335,17 +335,17 @@ if __name__ == '__main__':
     #                                    batteries=Batteries('bat_pack')),
     # )
     #
-    arch = PropSysArch(  # series hybrid with one engine, battery and two motors
-        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
-                                 gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(motors=[Motor('elec_motor'), Motor('elec_motor')],
-                               inverters=Inverter('inverter')),
-        electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
-                                       splitter=ElecSplitter('splitter'),
-                                       batteries=Batteries('bat_pack'),
-                                       engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
-                                                   Rectifier(name='rectifier'))),
-    )
+    # arch = PropSysArch(  # series hybrid with one engine, battery and two motors
+    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+    #     mech=MechPowerElements(motors=[Motor('elec_motor'), Motor('elec_motor')],
+    #                            inverters=Inverter('inverter')),
+    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+    #                                    splitter=ElecSplitter('splitter'),
+    #                                    batteries=Batteries('bat_pack'),
+    #                                    engines_dc=(Engine(name='turboshaft'), Generator(name='generator'),
+    #                                                Rectifier(name='rectifier'))),
+    # )
     #
     # arch = PropSysArch(  # turboelectric with one engine and two motors
     #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
@@ -357,17 +357,17 @@ if __name__ == '__main__':
     #                                                Rectifier(name='rectifier'))),
     # )
     #
-    # arch = PropSysArch(  # parallel hybrid system
-    #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
-    #                              gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-    #     mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')],
-    #                            motors=[Motor('motor'), Motor('motor')],
-    #                            mech_buses=MechBus('mech_bus'),
-    #                            mech_splitters=MechSplitter('mech_splitter'),
-    #                            inverters=Inverter('inverter')),
-    #     electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
-    #                                    batteries=Batteries('bat_pack')),
-    # )
+    arch = PropSysArch(  # parallel hybrid system
+        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
+                                 gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
+        mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')],
+                               motors=[Motor('motor'), Motor('motor')],
+                               mech_buses=MechBus('mech_bus'),
+                               mech_splitters=MechSplitter('mech_splitter'),
+                               inverters=Inverter('inverter')),
+        electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
+                                       batteries=Batteries('bat_pack')),
+    )
 
     prob = om.Problem()
     prob.model = grp = om.Group()
@@ -377,10 +377,12 @@ if __name__ == '__main__':
         num_nodes=11, aircraft_model=DynamicACModel.factory(arch),
     ), promotes_inputs=['*'], promotes_outputs=['*'])
 
-    # grp.add_design_var('ac|propulsion|mech_engine|rating', lower=50, upper=2000)
+    grp.add_design_var('ac|propulsion|mech_engine|rating', lower=50, upper=2000)
     grp.add_design_var('ac|propulsion|motor|rating', lower=50, upper=2000)
     grp.add_design_var('ac|weights|W_battery', lower=100, upper=3000)
-    grp.add_design_var('ac|propulsion|elec_engine|rating', lower=50, upper=2000)
+    # grp.add_design_var('ac|propulsion|elec_engine|rating', lower=50, upper=2000)
+    grp.add_design_var('ac|propulsion|mech_splitter|mech_DoH', lower=0.01, upper=0.99)  # used for parallel hybrid
+    # grp.add_design_var('ac|propulsion|elec_splitter|elec_DoH', lower=0.01, upper=0.99)  # used for series hybrid
 
     prob.setup()
     om.n2(prob, show_browser=True)
