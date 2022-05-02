@@ -15,12 +15,14 @@ from openconcept.architecting.builder.architecture import *
 # TODO: add DVs/constraints to properly size other electrical propulsion system components
 #       (for example, the inverter) so they can handle the electrical power
 # obj = {"var": "descent.fuel_used_final"}
-obj = {"var": "mixed_objective"}
+obj = {"var": "energy_used"}
+# obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
     {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 0.1, "ref": 5e2, "units": "kW"}},
     {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 0.1, "ref": 5e2, "units": "kW"}},
-    {"var": "ac|weights|W_battery", "kwargs": {"lower": 0.1, "ref": 1e3, "units": "kg"}}
+    {"var": "ac|weights|W_battery", "kwargs": {"lower": 0.1, "ref": 1e3, "units": "kg"}},
+    {"var": "ac|propulsion|mech_splitter|mech_DoH", "kwargs": {"lower": 0.01, "upper": 0.99}},
 ]
 # Constraints to be enforced at every flight segment; full variable name will be
 # <mission segment>.<var name>
@@ -43,14 +45,14 @@ for seg_con in seg_cons:
         cons[-1]["var"] = ".".join((seg, cons[-1]["var"]))
 
 curDir = os.path.abspath(os.path.dirname(__file__))
-filepath = os.path.join(curDir, "data", "parallel_hybrid")
+filepath = os.path.join(curDir, "data", "parallel_hybrid", "energy_used")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
 mission_ranges = np.linspace(300, 800, 10)
 spec_energies = np.linspace(300, 800, 10)
 
-mission_ranges = np.array([mission_ranges[9]])
 spec_energies = spec_energies[-1::-1]
+mission_ranges = mission_ranges[7:]
 
 for mission_range in mission_ranges:
     for e_batt in spec_energies:

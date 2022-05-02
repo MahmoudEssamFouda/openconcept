@@ -117,6 +117,10 @@ class DynamicKingAirAnalysisGroup(om.Group):
         self.add_subsystem("energy", EnergyObjective(), promotes_inputs=[("W_battery", "ac|weights|W_battery")], promotes_outputs=["energy_used"])
         self.connect("descent.fuel_used_final", "energy.fuel_burn")
 
+        # If there is a battery in the model, connect the state of charge at the end
+        if self.options["prop_arch"].electric.batteries is not None:
+            self.connect("descent.propmodel.elec.bat_pack.SOC_final", "energy.SOC_final")
+
 
 class AugmentedFBObjective(om.ExplicitComponent):
     def setup(self):
@@ -137,16 +141,20 @@ class EnergyObjective(om.ExplicitComponent):
         self.add_input("fuel_burn", units="kg")
         self.add_input("W_battery", val=0., units="kg")
         self.add_input("e_battery", val=300., units="W*h/kg")
+        self.add_input("SOC_init", val=1.)
+        self.add_input("SOC_final", val=0.)
         self.add_output("energy_used", units="W*h")
-        self.declare_partials(["energy_used"], ["fuel_burn", "W_battery", "e_battery"])
+        self.declare_partials(["energy_used"], ["fuel_burn", "W_battery", "e_battery", "SOC_init", "SOC_final"])
 
     def compute(self, inputs, outputs):
-        outputs["energy_used"] = inputs["fuel_burn"] * self.options["e_fuel"] + inputs["W_battery"] * inputs["e_battery"]
+        outputs["energy_used"] = inputs["fuel_burn"] * self.options["e_fuel"] + inputs["W_battery"] * inputs["e_battery"] * (inputs["SOC_init"] - inputs["SOC_final"])
     
     def compute_partials(self, inputs, J):
         J["energy_used", "fuel_burn"] = self.options["e_fuel"]
-        J["energy_used", "W_battery"] = inputs["e_battery"]
-        J["energy_used", "e_battery"] = inputs["W_battery"]
+        J["energy_used", "W_battery"] = inputs["e_battery"] * (inputs["SOC_init"] - inputs["SOC_final"])
+        J["energy_used", "e_battery"] = inputs["W_battery"] * (inputs["SOC_init"] - inputs["SOC_final"])
+        J["energy_used", "SOC_init"] = inputs["W_battery"] * inputs["e_battery"]
+        J["energy_used", "SOC_final"] = - inputs["W_battery"] * inputs["e_battery"]
 
 
 def opt_prob(

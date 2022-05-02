@@ -15,13 +15,14 @@ from openconcept.architecting.builder.architecture import *
 # TODO: add DVs/constraints to properly size other electrical propulsion system components
 #       (for example, the inverter) so they can handle the electrical power
 # obj = {"var": "descent.fuel_used_final"}
-obj = {"var": "energy_used"}
-# obj = {"var": "mixed_objective"}
+# obj = {"var": "energy_used"}
+obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
     {"var": "ac|propulsion|elec_engine|rating", "kwargs": {"lower": 0., "ref": 5e2, "units": "kW"}},
     {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 200, "ref": 5e2, "units": "kW"}},
-    {"var": "ac|weights|W_battery", "kwargs": {"lower": 0, "ref": 1e3, "units": "kg"}}
+    {"var": "ac|weights|W_battery", "kwargs": {"lower": 0, "ref": 1e3, "units": "kg"}},
+    {"var": "ac|propulsion|elec_splitter|elec_DoH", "kwargs": {"lower": 0.01, "upper": 0.99}},
 ]
 # Constraints to be enforced at every flight segment; full variable name will be
 # <mission segment>.<var name>
@@ -47,7 +48,7 @@ Path(filepath).mkdir(parents=True, exist_ok=True)
 
 mission_ranges = np.linspace(300, 800, 10)
 spec_energies = np.linspace(300, 800, 10)
-spec_energies = np.array([spec_energies[9]])
+spec_energies = spec_energies[7:]
 
 for mission_range in mission_ranges:
     for e_batt in spec_energies:
@@ -72,12 +73,12 @@ for mission_range in mission_ranges:
             hst_file=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.hst"),
         )
         p.model.set_input_defaults("ac|weights|W_battery", val=1e3, units="kg")
-        # add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
+        add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
         p.setup()
         set_problem_vars(p, e_batt=e_batt)
         p.set_val("mission_range", mission_range, units="nmi")
         p.run_driver()
-        # p.record("optimized")
+        p.record("optimized")
         om.n2(p, show_browser=False, outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}_n2.html"))
 
         # Set values in the results vector

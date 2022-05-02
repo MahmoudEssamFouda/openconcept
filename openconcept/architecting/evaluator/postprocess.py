@@ -4,7 +4,7 @@ import numpy as np
 import os
 
 curDir = os.path.abspath(os.path.dirname(__file__))
-arch = "electric"
+arch = "series_hybrid"
 filepath = os.path.join(curDir, "data", arch)
 
 mission_ranges = np.linspace(300, 800, 10)
