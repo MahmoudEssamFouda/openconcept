@@ -134,11 +134,11 @@ class MechPowerElements(ArchSubSystem):
             motor_rating_paths = ['mech.mech%d.motor_rating' % (i + 1,) for i in range(len(self.motors))]
             mech_dvs += ('ac|propulsion|motor|rating', motor_rating_paths, 'kW', self.motors[0].power_rating),
 
-        if self.engines is not None and self.motors is not None:
-            if self.mech_splitters is not None:
-                mech_doh_paths = ['mech.mech%d.mech_DoH' % (i + 1,) for i in range(len(self.engines))]
-                mech_dvs += ('ac|propulsion|mech_splitter|mech_DoH', mech_doh_paths, None,
-                             self.mech_splitters.mech_DoH),
+        # if self.engines is not None and self.motors is not None:
+        #     if self.mech_splitters is not None:
+        #         mech_doh_paths = ['mech.mech%d.mech_DoH' % (i + 1,) for i in range(len(self.engines))]
+        #         mech_dvs += ('ac|propulsion|mech_splitter|mech_DoH', mech_doh_paths, None,
+        #                      self.mech_splitters.mech_DoH),
 
         return mech_dvs
 

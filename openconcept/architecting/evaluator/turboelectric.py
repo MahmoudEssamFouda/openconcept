@@ -12,8 +12,6 @@ from openconcept.architecting.evaluator.analysis_group import (
 )
 from openconcept.architecting.builder.architecture import *
 
-# TODO: add DVs/constraints to properly size other electrical propulsion system components
-#       (for example, the inverter) so they can handle the electrical power
 # obj = {"var": "descent.fuel_used_final"}
 obj = {"var": "mixed_objective"}
 DVs = [
@@ -80,6 +78,8 @@ for mission_range in mission_ranges:
     #       "fuel energy" (kWh)
     #       "battery energy" (kWh)
     #       "MTOW" (kg)
+    #       "cruise DoH"
+    #       "S_ref" (m^2)
     #       "mixed objective" (kg, fuel burn + MTOW / 100)
     results = {}
     results["range"] = mission_range
@@ -90,6 +90,8 @@ for mission_range in mission_ranges:
     results["battery energy"] = 0.0
     results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
     results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
+    results["cruise DoH"] = 0.
+    results["S_ref"] = p.get_val("ac|geom|wing|S_ref", units="m**2").item()
 
     with open(os.path.join(filepath, f"range{int(mission_range)}nmi.pkl"), "wb") as f:
         pkl.dump(results, f, protocol=pkl.HIGHEST_PROTOCOL)

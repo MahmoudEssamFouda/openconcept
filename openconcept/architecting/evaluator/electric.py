@@ -12,19 +12,18 @@ from openconcept.architecting.evaluator.analysis_group import (
 )
 from openconcept.architecting.builder.architecture import *
 
-# TODO: add DVs/constraints to properly size other electrical propulsion system components
-#       (for example, the inverter) so they can handle the electrical power
 # obj = {"var": "descent.fuel_used_final"}
 obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
-    {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 200, "ref": 5e2, "units": "kW"}},
+    {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 500, "ref": 5e2, "units": "kW"}},
     {"var": "ac|weights|W_battery", "kwargs": {"lower": 50, "ref": 1e3, "units": "kg"}}
 ]
 # Constraints to be enforced at every flight segment; full variable name will be
 # <mission segment>.<var name>
 seg_cons = [
     {"var": "throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
+    {"var": "propmodel.elec.bat_pack.component_sizing_margin", "kwargs": {"upper": 1.0}},
 ]
 cons = [  # constraints that are enforce at a single variable
     {"var": "descent.propmodel.elec.bat_pack.SOC_final", "kwargs": {"lower": 0.0}},
@@ -44,8 +43,10 @@ Path(filepath).mkdir(parents=True, exist_ok=True)
 mission_ranges = np.linspace(300, 800, 10)
 spec_energies = np.linspace(300, 800, 10)
 
-mission_ranges = np.array([mission_ranges[9]])
 spec_energies = spec_energies[-1::-1]
+# mission_ranges = mission_ranges[0:4]
+# mission_ranges = mission_ranges[4:7]
+mission_ranges = mission_ranges[9:]
 
 for mission_range in mission_ranges:
     for e_batt in spec_energies:
@@ -56,7 +57,7 @@ for mission_range in mission_ranges:
             ),
             mech=MechPowerElements(motors=[Motor("elec_motor", power_rating=600), Motor("elec_motor", power_rating=600)], inverters=Inverter("inverter")),
             electric=ElectricPowerElements(
-                dc_bus=DCBus("elec_bus"), batteries=Batteries("bat_pack", weight=5e5/e_batt, specific_energy=e_batt)
+                dc_bus=DCBus("elec_bus"), batteries=Batteries("bat_pack", weight=3e3, specific_energy=e_batt)
             ),
         )
 
@@ -68,7 +69,7 @@ for mission_range in mission_ranges:
             model=DynamicKingAirAnalysisGroup,
             hst_file=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.hst"),
         )
-        p.model.set_input_defaults("ac|weights|W_battery", val=5e5/e_batt, units="kg")
+        p.model.set_input_defaults("ac|weights|W_battery", val=3e3, units="kg")
         add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
         p.setup()
         set_problem_vars(p, e_batt=e_batt)
@@ -86,6 +87,8 @@ for mission_range in mission_ranges:
         #       "fuel energy" (kWh)
         #       "battery energy" (kWh)
         #       "MTOW" (kg)
+        #       "cruise DoH"
+        #       "S_ref" (m^2)
         #       "mixed objective" (kg, fuel burn + MTOW / 100)
         results = {}
         results["range"] = mission_range
@@ -96,6 +99,8 @@ for mission_range in mission_ranges:
         results["battery energy"] *= e_batt / 1e3 * p.get_val("ac|weights|W_battery", units="kg").item()
         results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
         results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
+        results["cruise DoH"] = 1.
+        results["S_ref"] = p.get_val("ac|geom|wing|S_ref", units="m**2").item()
 
         with open(os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.pkl"), "wb") as f:
             pkl.dump(results, f, protocol=pkl.HIGHEST_PROTOCOL)

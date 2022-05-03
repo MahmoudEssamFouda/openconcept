@@ -118,8 +118,9 @@ class DynamicKingAirAnalysisGroup(om.Group):
         self.connect("descent.fuel_used_final", "energy.fuel_burn")
 
         # If there is a battery in the model, connect the state of charge at the end
-        if self.options["prop_arch"].electric.batteries is not None:
-            self.connect("descent.propmodel.elec.bat_pack.SOC_final", "energy.SOC_final")
+        if self.options["prop_arch"].electric is not None:
+            if self.options["prop_arch"].electric.batteries is not None:
+                self.connect("descent.propmodel.elec.bat_pack.SOC_final", "energy.SOC_final")
 
 
 class AugmentedFBObjective(om.ExplicitComponent):

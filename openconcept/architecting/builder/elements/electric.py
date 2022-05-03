@@ -128,9 +128,9 @@ class ElectricPowerElements(ArchSubSystem):
             eng, gen, rect = self.engines_dc
             elec_dvs += ('ac|propulsion|elec_engine|rating', elec_eng_paths, 'kW', eng.power_rating),
 
-        if self.splitter is not None:
-            elec_doh_paths = ['elec.elec_DoH']
-            elec_dvs += ('ac|propulsion|elec_splitter|elec_DoH', elec_doh_paths, None, self.splitter.elec_DoH),
+        # if self.splitter is not None:
+        #     elec_doh_paths = ['elec.elec_DoH']
+        #     elec_dvs += ('ac|propulsion|elec_splitter|elec_DoH', elec_doh_paths, None, self.splitter.elec_DoH),
 
         return elec_dvs
 

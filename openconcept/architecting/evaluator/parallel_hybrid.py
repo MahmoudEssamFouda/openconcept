@@ -12,17 +12,15 @@ from openconcept.architecting.evaluator.analysis_group import (
 )
 from openconcept.architecting.builder.architecture import *
 
-# TODO: add DVs/constraints to properly size other electrical propulsion system components
-#       (for example, the inverter) so they can handle the electrical power
 # obj = {"var": "descent.fuel_used_final"}
-obj = {"var": "energy_used"}
-# obj = {"var": "mixed_objective"}
+# obj = {"var": "energy_used"}
+obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
     {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 0.1, "ref": 5e2, "units": "kW"}},
     {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 0.1, "ref": 5e2, "units": "kW"}},
     {"var": "ac|weights|W_battery", "kwargs": {"lower": 0.1, "ref": 1e3, "units": "kg"}},
-    {"var": "ac|propulsion|mech_splitter|mech_DoH", "kwargs": {"lower": 0.01, "upper": 0.99}},
+    # {"var": "cruise_DoH", "kwargs": {"lower": 0.01, "upper": 0.99}},
 ]
 # Constraints to be enforced at every flight segment; full variable name will be
 # <mission segment>.<var name>
@@ -32,6 +30,7 @@ seg_cons = [
     {"var": "propmodel.mech.mech2.turboshaft.component_sizing_margin", "kwargs": {"upper": 1.0}},
     {"var": "propmodel.mech.mech1.motor.component_sizing_margin", "kwargs": {"upper": 1.0}},
     {"var": "propmodel.mech.mech2.motor.component_sizing_margin", "kwargs": {"upper": 1.0}},
+    {"var": "propmodel.elec.bat_pack.component_sizing_margin", "kwargs": {"upper": 1.0}},
 ]
 cons = [  # constraints that are enforce at a single variable
     {"var": "descent.propmodel.elec.bat_pack.SOC_final", "kwargs": {"lower": 0.0}},
@@ -45,14 +44,14 @@ for seg_con in seg_cons:
         cons[-1]["var"] = ".".join((seg, cons[-1]["var"]))
 
 curDir = os.path.abspath(os.path.dirname(__file__))
-filepath = os.path.join(curDir, "data", "parallel_hybrid", "energy_used")
+filepath = os.path.join(curDir, "data", "parallel_hybrid")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
 mission_ranges = np.linspace(300, 800, 10)
 spec_energies = np.linspace(300, 800, 10)
 
-spec_energies = spec_energies[-1::-1]
-mission_ranges = mission_ranges[7:]
+spec_energies = spec_energies[-1::-1][0:1]
+mission_ranges = mission_ranges[0:1]
 
 for mission_range in mission_ranges:
     for e_batt in spec_energies:
@@ -76,13 +75,19 @@ for mission_range in mission_ranges:
             model=DynamicKingAirAnalysisGroup,
             hst_file=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.hst"),
         )
+
+        # Promote the cruise hybridization to use it as a design variable
+        p.model.promotes("mission.cruise.acmodel.propmodel.mech.mech1.splitter_in_collect", inputs=[("mech_DoH", "cruise_DoH")])
+        p.model.promotes("cruise.propmodel.mech.mech2", inputs=[("mech_DoH", "cruise_DoH")])
+
         p.model.set_input_defaults("ac|weights|W_battery", val=1e3, units="kg")
-        add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
+        # add_recorder(p, filename=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.sql"))
         p.setup()
         set_problem_vars(p, e_batt=e_batt)
         p.set_val("mission_range", mission_range, units="nmi")
-        p.run_driver()
-        p.record("optimized")
+        # p.run_driver()
+        p.run_model()
+        # p.record("optimized")
         om.n2(p, show_browser=False, outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}_n2.html"))
 
         # Set values in the results vector
@@ -93,6 +98,8 @@ for mission_range in mission_ranges:
         #       "fuel energy" (kWh)
         #       "battery energy" (kWh)
         #       "MTOW" (kg)
+        #       "cruise DoH"
+        #       "S_ref"
         #       "mixed objective" (kg, fuel burn + MTOW / 100)
         results = {}
         results["range"] = mission_range
@@ -104,6 +111,8 @@ for mission_range in mission_ranges:
         results["battery energy"] *= e_batt / 1e3 * p.get_val("ac|weights|W_battery", units="kg").item()
         results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
         results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
+        results["cruise DoH"] = p.get_val("cruise_DoH").item()
+        results["S_ref"] = p.get_val("ac|geom|wing|S_ref", units="m**2").item()
 
         with open(os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.pkl"), "wb") as f:
             pkl.dump(results, f, protocol=pkl.HIGHEST_PROTOCOL)

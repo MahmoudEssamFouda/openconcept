@@ -25,7 +25,7 @@ prop_arch = PropSysArch(  # Conventional with gearbox
 obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
-    {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 200, "upper": 1e3, "ref": 5e2, "units": "kW"}},
+    {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 400, "upper": 1e3, "ref": 5e2, "units": "kW"}},
 ]
 cons = [
     {"var": "climb.throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
@@ -65,6 +65,8 @@ for mission_range in mission_ranges:
     #       "fuel energy" (kWh)
     #       "battery energy" (kWh)
     #       "MTOW" (kg)
+    #       "cruise DoH"
+    #       "S_ref" (m^2)
     #       "mixed objective" (kg, fuel burn + MTOW / 100)
     results = {}
     results["range"] = mission_range
@@ -75,6 +77,8 @@ for mission_range in mission_ranges:
     results["battery energy"] = 0.0
     results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
     results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
+    results["cruise DoH"] = 0.
+    results["S_ref"] = p.get_val("ac|geom|wing|S_ref", units="m**2").item()
 
     with open(os.path.join(filepath, f"range{int(mission_range)}nmi.pkl"), "wb") as f:
         pkl.dump(results, f, protocol=pkl.HIGHEST_PROTOCOL)
