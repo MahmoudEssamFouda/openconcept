@@ -147,13 +147,12 @@ class DynamicParallelHybridTwinTurbopropTestCase(unittest.TestCase):
                           2 * (26 * (500 ** 0.76) * (5500 ** 0.13) / (1900 ** 0.89)), tolerance=1e-3)
 
         # check thrust output
-        # gearbox efficiency with these parameters = 0.9869106467436468
+        # gearbox efficiency with these parameters = 0.9867174154681301
         # air density = 0.475448
-        # prop efficiency based on forward flight map at these flight conditions = 0.7905058549964331
-        # Note that in parallel hybrid motor efficiency is not considered in the throttle
+        # prop efficiency based on forward flight map at these flight conditions = 0.7907443369625914
         assert_near_equal(prob.get_val('thrust', units='N'),
-                          (2 * np.ones(11) * (0.9869106467436468 * 0.9 * 500 * 1000 * 0.95 /
-                                              (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.7905058549964331 /
+                          (2 * np.ones(11) * (0.9867174154681301 * 0.9 * (260+0.97*240) * 1000 * 0.95 /
+                                              (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.7907443369625914 /
                            (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4, tolerance=1e-6)
         #
         # # check SOC after duration
@@ -254,13 +253,13 @@ class DynamicParallelHybridTwinTurbopropTestCase(unittest.TestCase):
                           2 * (26 * (500 ** 0.76) * (5500 ** 0.13) / (1900 ** 0.89)), tolerance=1e-3)
 
         # check thrust output
-        # gearbox efficiency with these parameters = 0.9869106467436468, 0.978236536229132
+        # gearbox efficiency with these parameters = 0.9867174154681301, 0.978236536229132
         # air density = 0.475448
-        # prop efficiency based on forward flight map at flight conditions = 0.7905058549964331, 0.7834971853978847
+        # prop efficiency based on forward flight map at flight conditions = 0.7907443369625914, 0.7834971853978847
         # Note that in parallel hybrid motor efficiency is not considered in the throttle
         assert_near_equal(prob.get_val('thrust', units='N'),
-                          ((1 * np.ones(11) * (0.9869106467436468 * 0.9 * 500 * 1000 * 0.95 /
-                                               (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.7905058549964331 /
+                          ((1 * np.ones(11) * (0.9867174154681301 * 0.9 * (260+0.97*240) * 1000 * 0.95 /
+                                               (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.7907443369625914 /
                             (92.5 / ((1900 / 60) * 2.3))) * 0.475448 * ((1900 / 60) ** 2) * 2.3 ** 4) +
                           ((1 * np.ones(11) * (0.978236536229132 * 0.9 * 260 * 1000 * 0.95 /
                                                (0.475448 * ((1900 / 60) ** 3) * 2.3 ** 5)) * 0.7834971853978847 /
