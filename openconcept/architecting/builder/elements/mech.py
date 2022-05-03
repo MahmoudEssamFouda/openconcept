@@ -249,6 +249,7 @@ class MechPowerElements(ArchSubSystem):
                 _, mot_input_map = collect_inputs(mech_thrust_group, [
                     ('motor_rating', 'kW', motor.power_rating),
                     ('motor_output_rpm', 'rpm', motor.output_rpm),
+                    ('motor_efficiency', None, motor.efficiency),
                 ], name="motor_in_collect")
 
                 # Add electric motor component
@@ -276,11 +277,12 @@ class MechPowerElements(ArchSubSystem):
 
                     # add rated powers
                     sum_rated_power = om.ExecComp([
-                        'tot_rated_power = engine_rated_power + active_flag * motor_rated_power',
+                        'tot_rated_power = engine_rated_power + active_flag * motor_rated_power * motor_eff',
                     ],
                         tot_rated_power={'val': 1, 'units': 'kW'},
                         engine_rated_power={'val': 1, 'units': 'kW'},
                         active_flag={'val': 1},
+                        motor_eff={'val': 1},
                         motor_rated_power={'val': 1.0, 'units': 'kW'},
                     )
                     mech_thrust_group.add_subsystem('sum_rated_power', subsys=sum_rated_power)
@@ -288,14 +290,17 @@ class MechPowerElements(ArchSubSystem):
                                               'sum_rated_power' + '.engine_rated_power')
                     mech_thrust_group.connect(mot_input_map['motor_rating'],
                                               'sum_rated_power' + '.motor_rated_power')
+                    mech_thrust_group.connect(mot_input_map['motor_efficiency'],
+                                              'sum_rated_power' + '.motor_eff')
                     mech_thrust_group.connect('scalify_active_input' + '.' + ACTIVE_INPUT + '_scalar',
                                               'sum_rated_power' + '.active_flag')
                 else:  # all engines active condition
                     sum_rated_power = om.ExecComp([
-                        'tot_rated_power = engine_rated_power + motor_rated_power',
+                        'tot_rated_power = engine_rated_power + motor_rated_power * motor_eff',
                     ],
                         tot_rated_power={'val': 1, 'units': 'kW'},
                         engine_rated_power={'val': 1, 'units': 'kW'},
+                        motor_eff={'val': 1},
                         motor_rated_power={'val': 1.0, 'units': 'kW'},
                     )
                     mech_thrust_group.add_subsystem('sum_rated_power', subsys=sum_rated_power)
@@ -303,6 +308,8 @@ class MechPowerElements(ArchSubSystem):
                                               'sum_rated_power' + '.engine_rated_power')
                     mech_thrust_group.connect(mot_input_map['motor_rating'],
                                               'sum_rated_power' + '.motor_rated_power')
+                    mech_thrust_group.connect(mot_input_map['motor_efficiency'],
+                                              'sum_rated_power' + '.motor_eff')
 
                 # add rated powers of eng and motor for sizing
                 sizing_rated_power = AddSubtractComp()
