@@ -220,6 +220,7 @@ def opt_prob(
     prob.model = model(num_nodes=num_nodes, prop_arch=prop_arch)
     prob.model.nonlinear_solver = om.NewtonSolver(iprint=2, err_on_non_converge=True)
     prob.model.nonlinear_solver.linesearch = om.BoundsEnforceLS(print_bound_enforce=False)
+    # prob.model.nonlinear_solver.linesearch = om.ArmijoGoldsteinLS()
     prob.model.options["assembled_jac_type"] = "csc"
     prob.model.linear_solver = om.DirectSolver(assemble_jac=True)
     prob.model.nonlinear_solver.options["solve_subsystems"] = True

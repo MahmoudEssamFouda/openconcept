@@ -4,12 +4,12 @@ import numpy as np
 import os
 
 curDir = os.path.abspath(os.path.dirname(__file__))
-arch = "series_hybrid"
+arch = "parallel_hybrid"
 filepath = os.path.join(curDir, "data", arch)
 
-variable = ["mixed objective", "MTOW", "S_ref", "energy", "cruise DoH"]
-nice_var_name = ["fuel burn + MTOW / 100 (kg)", "MTOW (kg)", "Wing area (sq m)", "Energy used (kWh)", "Cruise hybridization (0 all battery, 1 all fuel)"]
-file_var_name = ["obj", "mtow", "s_ref", "energy", "cruise_doh"]
+variable = ["mixed objective", "MTOW", "energy", "cruise DoH"]
+nice_var_name = ["fuel burn + MTOW / 100 (kg)", "MTOW (kg)", "Energy used (kWh)", "Cruise hybridization (0 all battery, 1 all fuel)"]
+file_var_name = ["obj", "mtow", "energy", "cruise_doh"]
 
 mission_ranges = np.linspace(300, 800, 10)
 spec_energies = np.linspace(300, 800, 10)
