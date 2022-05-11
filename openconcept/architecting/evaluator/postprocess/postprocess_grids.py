@@ -33,7 +33,7 @@ cbar_lim = [
 nice.setRCParams(dark_mode=False, set_dark_background=False)
 plt.rcParams["font.size"] = 14
 
-curDir = os.path.abspath(os.path.dirname(__file__))
+curDir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
 # Min and max value for each variable
 var_minmax = [
@@ -52,7 +52,7 @@ x, y = np.meshgrid(x_list, y_list, indexing="xy")
 
 for i_arch, arch in enumerate(archs):
     filepath = os.path.join(curDir, "data", arch)
-    filepath_save = os.path.join(curDir, "figures")
+    filepath_save = os.path.join(curDir, "postprocess", "figures")
     oneD = is_oneD[i_arch]
 
     for i_var in range(len(variable)):
@@ -99,7 +99,7 @@ for i_arch, arch in enumerate(archs):
         plt.xlim((x_list[0], x_list[-1]))
         plt.ylim((y_list[0], y_list[-1]))
         cbar = plt.colorbar()
-        cbar.set_label(var_nice)
+        plt.title(var_nice)
         if clim is not None:
             plt.clim(clim)
         plt.savefig(os.path.join(filepath_save, f"{arch}_{var_file}.pdf"))
