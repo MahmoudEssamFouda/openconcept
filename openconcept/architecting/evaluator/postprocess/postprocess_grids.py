@@ -36,11 +36,11 @@ cbar_lim = [
     (0.2, 0.6),
 ]  # colorbar limits for each variable (currently set as variables' min and max values across all architectures)
 
-payload = 453.592  # kg, 1000 lbs 
+payload = 453.592  # kg, 1000 lbs
 
 # ================= CREATE PLOTS =================
 nice.setRCParams(dark_mode=False, set_dark_background=False)
-plt.rcParams["font.size"] = 14
+plt.rcParams["font.size"] = 12
 
 curDir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 
@@ -104,8 +104,8 @@ for i_arch, arch in enumerate(archs):
                     try:
                         W_batt = case.get_val("ac|weights|W_battery_pass", units="kg").item()
                     except KeyError:
-                        W_batt = 0.
-                    
+                        W_batt = 0.0
+
                     # Get the propulsion system weight (including battery)
                     W_prop_sys = case.get_val("cruise.propulsion_system_weight", units="kg").item()
                     W_prop_sys += results["fuel burn"]
@@ -120,7 +120,7 @@ for i_arch, arch in enumerate(archs):
 
                 data[i, j] = results[var]
 
-        plt.figure(figsize=[6.4, 4.8])
+        plt.figure(figsize=[5.75, 5.])
         plt.pcolormesh(x, y, data)
         plt.xlabel("Battery specific energy (Wh/kg)")
         plt.ylabel("Mission range (nmi)")
