@@ -167,7 +167,7 @@ for i_arch, arch in enumerate(archs):
             labels=categories, rotatelabels=False, labeldistance=.75)
 
         ax.set(aspect="equal")
-        ax.set_title(f"{nice_arch}, {mission_range} nmi and {e_batt} Wh/kg", y=0.935)
+        ax.set_title(f"{nice_arch}, {mission_range} nmi and {e_batt} Wh/kg", y=0.935, fontsize="medium")
 
         # Manually set some font sizes so they fit better
         inner_text[-4].set_fontsize(8)  # "Structure"

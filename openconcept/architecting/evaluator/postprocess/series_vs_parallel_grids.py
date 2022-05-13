@@ -17,7 +17,7 @@ nice_var_name = [
     "Parallel hybrid cruise hybridization relative to series (%)",
     "Parallel hybrid paylod weight / MTOW relative to series (%)",
     "Parallel hybrid battery weight / MTOW relative to series (%)",
-    "Parallel hybrid propulsion system weight (incl. fuel and battery) / MTOW relative to series (%)",
+    "Parallel hybrid propulsion system weight\nincluding fuel and battery / MTOW relative to series (%)",
 ]
 file_var_name = ["obj", "mtow", "energy", "cruise_doh", "payload_frac", "batt_frac", "prop_sys_frac"]
 cbar_lim = [
@@ -120,8 +120,11 @@ for i_var in range(len(variable)):
 
     lim = np.array([np.min(data), np.max(data)])
 
+    # Take the biggest distance from zero to compute vmin and vmax
+    colormap_lim = max(abs(np.min(data)), abs(np.max(data)))
+
     plt.figure(figsize=[5.75, 5.])
-    plt.pcolormesh(x, y, data, cmap="coolwarm", norm=mcolors.TwoSlopeNorm(vmin=min(-1e-10, lim[0]), vcenter=0.0, vmax=max(1e-10, lim[1])))
+    plt.pcolormesh(x, y, data, cmap="coolwarm", vmin=-colormap_lim, vmax=colormap_lim)
     plt.xlabel("Battery specific energy (Wh/kg)")
     plt.ylabel("Mission range (nmi)")
     plt.xlim((x_list[0], x_list[-1]))
