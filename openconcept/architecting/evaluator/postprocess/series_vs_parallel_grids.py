@@ -24,9 +24,9 @@ clim = [
     None,
     None,
     None,
-    (-4, 4),
     None,
-    (-10, 10),
+    None,
+    None,
     None,
 ]  # colorbar limits for each variable
 
