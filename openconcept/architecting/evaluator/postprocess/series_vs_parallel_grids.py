@@ -20,15 +20,15 @@ nice_var_name = [
     "Parallel hybrid propulsion system weight\nincluding fuel and battery / MTOW relative to series (%)",
 ]
 file_var_name = ["obj", "mtow", "energy", "cruise_doh", "payload_frac", "batt_frac", "prop_sys_frac"]
-cbar_lim = [
-    (39.07724584033572, 908.759127400349),
-    (3078.8021790291486, 12439.5875678016),
-    (598.4980632723381, 10375.395528122435),
-    (0.0, 1.0),
-    (0.0, 0.15),
-    (0.0, 0.5),
-    (0.2, 0.6),
-]  # colorbar limits for each variable (currently set as variables' min and max values across all architectures)
+clim = [
+    None,
+    None,
+    None,
+    (-4, 4),
+    None,
+    (-10, 10),
+    None,
+]  # colorbar limits for each variable
 
 payload = 453.592  # kg, 1000 lbs
 
@@ -59,7 +59,6 @@ for i_var in range(len(variable)):
     var_nice = nice_var_name[i_var]
     var_file = file_var_name[i_var]
     data = np.zeros_like(range_grid)
-    lim = cbar_lim[i_var]
 
     # Series hybrid
     for i in range(range_grid.shape[0]):
@@ -122,9 +121,17 @@ for i_var in range(len(variable)):
 
     # Take the biggest distance from zero to compute vmin and vmax
     colormap_lim = max(abs(np.min(data)), abs(np.max(data)))
+    if clim[i_var]:
+        vmin = clim[i_var][0]
+        vmax = clim[i_var][1]
+        lim[0] = max(lim[0], vmin)
+        lim[1] = min(lim[1], vmax)
+    else:
+        vmin = -colormap_lim
+        vmax = colormap_lim
 
     plt.figure(figsize=[5.75, 5.])
-    plt.pcolormesh(x, y, data, cmap="coolwarm", vmin=-colormap_lim, vmax=colormap_lim)
+    plt.pcolormesh(x, y, data, cmap="coolwarm", vmin=vmin, vmax=vmax)
     plt.xlabel("Battery specific energy (Wh/kg)")
     plt.ylabel("Mission range (nmi)")
     plt.xlim((x_list[0], x_list[-1]))

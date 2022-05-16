@@ -25,7 +25,7 @@ vars = [
     [{"name": "climb.OEW_calc.W_fuelsystem", "pkl": False}, {"name": "climb.OEW_calc.W_fluids", "pkl": False}],
 ]
 
-cases = [{"range": 466, "e_batt": 522}, {"range": 300, "e_batt": 522}]
+cases = [{"range": 522, "e_batt": 800}, {"range": 300, "e_batt": 522}]
 
 archs = ["electric", "series_hybrid", "parallel_hybrid", "conventional", "turboelectric"]
 is_oneD = [
@@ -158,9 +158,17 @@ for i_arch, arch in enumerate(archs):
         outer_colors = cmap(np.arange(3)*4)
         inner_colors = cmap([1, 2, 5, 6, 9, 10])
 
-        _, outer_text = ax.pie(expand_subcategories(vals), radius=1, colors=expand_subcategories(sub_colors),
+        outer_vals = expand_subcategories(vals)
+        outer_colors = expand_subcategories(sub_colors)
+        outer_labels = expand_subcategories(subcat_labels)
+        for i_lab, label in enumerate(outer_labels):
+            if label is None:
+                continue
+            outer_labels[i_lab] += f"\n{outer_vals[i_lab] / results['MTOW'] * 100:1.1f}%"
+
+        _, outer_text = ax.pie(outer_vals, radius=1, colors=outer_colors,
             wedgeprops=dict(width=size, edgecolor=None), textprops=dict(rotation_mode='anchor', va='center', ha='center', color="w"),
-            labels=expand_subcategories(subcat_labels), rotatelabels=False, labeldistance=.85)
+            labels=outer_labels, rotatelabels=False, labeldistance=.85)
 
         _, inner_text = ax.pie(sum_categories(vals), radius=1-size-0.01, colors=colors,
             wedgeprops=dict(width=size, edgecolor=None), textprops=dict(rotation_mode='anchor', va='center', ha='center', color="w"),
