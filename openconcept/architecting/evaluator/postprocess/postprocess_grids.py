@@ -4,9 +4,16 @@ import numpy as np
 import niceplots as nice
 import os
 import openmdao.api as om
+from openconcept.architecting.evaluator.postprocess.utils import get_snopt_exit
 
 # ================= PLOT SETTINGS =================
-archs = ["electric", "series_hybrid", "parallel_hybrid", "conventional", "turboelectric"]
+archs = [
+    "electric",
+    "series_hybrid",
+    "parallel_hybrid",
+    "conventional",
+    "turboelectric"
+]
 is_oneD = [
     False,
     False,
@@ -15,7 +22,7 @@ is_oneD = [
     True,
 ]  # True if only sweep over mission range and not battery spec energy (because no battery)
 
-variable = ["mixed objective", "MTOW", "energy", "cruise DoH", "payload_frac", "batt_frac", "prop_sys_frac"]
+variable = ["mixed objective", "MTOW", "energy", "cruise DoH", "payload_frac", "batt_frac", "prop_sys_frac", "bfl", "motor_rating", "eng_rating"]
 nice_var_name = [
     "Fuel burn + MTOW / 100 (kg)",
     "MTOW (kg)",
@@ -24,16 +31,22 @@ nice_var_name = [
     "Paylod weight / MTOW",
     "Battery weight / MTOW",
     "Propulsion system weight (incl. fuel and battery) / MTOW",
+    "Balanced field length (ft)",
+    "Parallel hybrid motor rating (kW)",
+    "Parallel hybrid engine rating (kW)",
 ]
-file_var_name = ["obj", "mtow", "energy", "cruise_doh", "payload_frac", "batt_frac", "prop_sys_frac"]
+file_var_name = ["obj", "mtow", "energy", "cruise_doh", "payload_frac", "batt_frac", "prop_sys_frac", "bfl", "motor_rating", "eng_rating"]
 cbar_lim = [
-    (39.07724584033572, 908.759127400349),
-    (3078.8021790291486, 12439.5875678016),
-    (598.4980632723381, 10375.395528122435),
+    (39.07724584033572, 818.8),
+    (3078.8021790291486, 5700.),
+    (598.4980632723381, 9349.168),
     (0.0, 1.0),
-    (0.0, 0.15),
-    (0.0, 0.5),
-    (0.2, 0.6),
+    (0.0, 0.1474),
+    (0.0, 0.3253),
+    (0.2, 0.4527),
+    (0., 4452.),
+    (0., 400.),
+    (0., 570.),
 ]  # colorbar limits for each variable (currently set as variables' min and max values across all architectures)
 
 payload = 453.592  # kg, 1000 lbs
@@ -49,18 +62,18 @@ var_minmax = [
     (np.inf, -np.inf),
 ] * len(variable)
 
-mission_ranges = np.linspace(300, 800, 10)
-spec_energies = np.linspace(300, 800, 10)
-e_batt_grid, range_grid = np.meshgrid(spec_energies, mission_ranges, indexing="xy")
+mission_ranges = np.linspace(300, 800, 11)
+spec_energies = np.linspace(300, 800, 11)
+range_grid, e_batt_grid = np.meshgrid(mission_ranges, spec_energies, indexing="xy")
 
-x_spacing = spec_energies[1] - spec_energies[0]
-y_spacing = mission_ranges[1] - mission_ranges[0]
-x_list = np.hstack((spec_energies - x_spacing / 2, np.array([spec_energies[-1] + x_spacing / 2])))
-y_list = np.hstack((mission_ranges - y_spacing / 2, np.array([mission_ranges[-1] + y_spacing / 2])))
+x_spacing = mission_ranges[1] - mission_ranges[0]
+y_spacing = spec_energies[1] - spec_energies[0]
+x_list = np.hstack((mission_ranges - x_spacing / 2, np.array([mission_ranges[-1] + x_spacing / 2])))
+y_list = np.hstack((spec_energies - y_spacing / 2, np.array([spec_energies[-1] + y_spacing / 2])))
 x, y = np.meshgrid(x_list, y_list, indexing="xy")
 
 for i_arch, arch in enumerate(archs):
-    filepath = os.path.join(curDir, "data", arch)
+    filepath = os.path.join(curDir, "data", "mtow_bound", "grid", arch)
     filepath_save = os.path.join(curDir, "postprocess", "figures", "result_grids")
     oneD = is_oneD[i_arch]
 
@@ -70,6 +83,9 @@ for i_arch, arch in enumerate(archs):
         var_file = file_var_name[i_var]
         data = np.zeros_like(range_grid)
         clim = cbar_lim[i_var]
+
+        if var in ["motor_rating", "eng_rating"] and arch != "parallel_hybrid":
+            continue
 
         # Series hybrid
         for i in range(range_grid.shape[0]):
@@ -87,12 +103,18 @@ for i_arch, arch in enumerate(archs):
                 except FileNotFoundError:
                     data[i, j] = np.NaN
                     continue
+                
+                # Only plot if the SNOPT exit code is 0/1
+                exit_code = get_snopt_exit(os.path.join(filepath, filename + "_SNOPT_print.out"))
+                if exit_code != (0, 1):
+                    data[i, j] = np.NaN
+                    continue
 
                 if var == "energy":
                     results[var] = results["fuel energy"] + results["battery energy"]
                 elif var == "payload_frac":
                     results[var] = payload / results["MTOW"]
-                elif var == "batt_frac" or var == "prop_sys_frac":
+                elif var in ["batt_frac", "prop_sys_frac", "bfl", "motor_rating", "eng_rating"]:
                     try:
                         cr = om.CaseReader(os.path.join(filepath, filename + ".sql"))
                         case = cr.get_case("optimized")
@@ -112,6 +134,16 @@ for i_arch, arch in enumerate(archs):
 
                     results["batt_frac"] = W_batt / results["MTOW"]
                     results["prop_sys_frac"] = W_prop_sys / results["MTOW"]
+                    results["bfl"] = max(case.get_val("rotate.range_final", units="ft").item(), case.get_val("v1v0.range_final", units="ft").item())
+
+                    if var in ["motor_rating", "eng_rating"]:
+                        results["motor_rating"] = case.get_val("ac|propulsion|motor|rating", units="kW").item()
+                        results["eng_rating"] = case.get_val("ac|propulsion|mech_engine|rating", units="kW").item()
+
+                    # if var == "batt_frac":
+                    #     # print(case.get_val("ac|propulsion|mech_engine|rating", units="kW").item())
+                    #     # print(case.get_val("ac|propulsion|motor|rating", units="kW").item())
+                    #     print(case.get_val("cruise_DoH").item())
 
                 print(results)
 
@@ -120,14 +152,14 @@ for i_arch, arch in enumerate(archs):
 
                 data[i, j] = results[var]
 
-        plt.figure(figsize=[5.75, 5.])
+        plt.figure(figsize=[5.75, 4.8])
         plt.pcolormesh(x, y, data)
-        plt.xlabel("Battery specific energy (Wh/kg)")
-        plt.ylabel("Mission range (nmi)")
+        plt.ylabel("Battery specific energy (Wh/kg)")
+        plt.xlabel("Mission range (nmi)")
         plt.xlim((x_list[0], x_list[-1]))
         plt.ylim((y_list[0], y_list[-1]))
         cbar = plt.colorbar()
-        plt.title(var_nice, fontsize="medium")
+        # plt.title(var_nice, fontsize="medium")
         if clim is not None:
             plt.clim(clim)
         plt.savefig(os.path.join(filepath_save, f"{arch}_{var_file}.pdf"))

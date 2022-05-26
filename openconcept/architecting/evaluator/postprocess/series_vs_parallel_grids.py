@@ -5,6 +5,7 @@ import numpy as np
 import niceplots as nice
 import os
 import openmdao.api as om
+from openconcept.architecting.evaluator.postprocess.utils import get_snopt_exit
 
 # ================= PLOT SETTINGS =================
 archs = ["series_hybrid", "parallel_hybrid"]  # results will be (arch[1] - arch[0]) / arch[0]
@@ -44,14 +45,14 @@ var_minmax = [
     (np.inf, -np.inf),
 ] * len(variable)
 
-mission_ranges = np.linspace(300, 800, 10)
-spec_energies = np.linspace(300, 800, 10)
-e_batt_grid, range_grid = np.meshgrid(spec_energies, mission_ranges, indexing="xy")
+mission_ranges = np.linspace(300, 800, 11)
+spec_energies = np.linspace(300, 800, 11)
+range_grid, e_batt_grid = np.meshgrid(mission_ranges, spec_energies, indexing="xy")
 
-x_spacing = spec_energies[1] - spec_energies[0]
-y_spacing = mission_ranges[1] - mission_ranges[0]
-x_list = np.hstack((spec_energies - x_spacing / 2, np.array([spec_energies[-1] + x_spacing / 2])))
-y_list = np.hstack((mission_ranges - y_spacing / 2, np.array([mission_ranges[-1] + y_spacing / 2])))
+x_spacing = mission_ranges[1] - mission_ranges[0]
+y_spacing = spec_energies[1] - spec_energies[0]
+y_list = np.hstack((spec_energies - y_spacing / 2, np.array([spec_energies[-1] + y_spacing / 2])))
+x_list = np.hstack((mission_ranges - x_spacing / 2, np.array([mission_ranges[-1] + x_spacing / 2])))
 x, y = np.meshgrid(x_list, y_list, indexing="xy")
 
 for i_var in range(len(variable)):
@@ -64,7 +65,7 @@ for i_var in range(len(variable)):
     for i in range(range_grid.shape[0]):
         for j in range(range_grid.shape[1]):
             for i_arch, arch in enumerate(archs):
-                filepath = os.path.join(curDir, "data", arch)
+                filepath = os.path.join(curDir, "data", "mtow_bound", "grid", arch)
 
                 e_batt = e_batt_grid[i, j]
                 mission_range = range_grid[i, j]
@@ -75,6 +76,12 @@ for i_var in range(len(variable)):
                     with open(os.path.join(filepath, filename + ".pkl"), "rb") as f:
                         results = pkl.load(f)
                 except FileNotFoundError:
+                    data[i, j] = np.NaN
+                    continue
+
+                # Only plot if the SNOPT exit code is 0/1
+                exit_code = get_snopt_exit(os.path.join(filepath, filename + "_SNOPT_print.out"))
+                if exit_code != (0, 1):
                     data[i, j] = np.NaN
                     continue
 
@@ -111,16 +118,16 @@ for i_var in range(len(variable)):
                     data[i, j] = (results[var] - data[i, j]) / data[i, j] * 100.0
 
     # Set the min and max of the current variable
-    var_minmax[i_var] = (np.min(data), np.max(data))
+    var_minmax[i_var] = (np.nanmin(data), np.nanmax(data))
 
     print("\n\n======================================================================================")
     print(f"      Done with {var_nice}")
     print("======================================================================================\n\n")
 
-    lim = np.array([np.min(data), np.max(data)])
+    lim = np.array([np.nanmin(data), np.nanmax(data)])
 
     # Take the biggest distance from zero to compute vmin and vmax
-    colormap_lim = max(abs(np.min(data)), abs(np.max(data)))
+    colormap_lim = max(abs(np.nanmin(data)), abs(np.nanmax(data)))
     if clim[i_var]:
         vmin = clim[i_var][0]
         vmax = clim[i_var][1]
@@ -130,14 +137,14 @@ for i_var in range(len(variable)):
         vmin = -colormap_lim
         vmax = colormap_lim
 
-    plt.figure(figsize=[5.75, 5.])
+    plt.figure(figsize=[5.75, 4.8])
     plt.pcolormesh(x, y, data, cmap="coolwarm", vmin=vmin, vmax=vmax)
-    plt.xlabel("Battery specific energy (Wh/kg)")
-    plt.ylabel("Mission range (nmi)")
+    plt.xlabel("Mission range (nmi)")
+    plt.ylabel("Battery specific energy (Wh/kg)")
     plt.xlim((x_list[0], x_list[-1]))
     plt.ylim((y_list[0], y_list[-1]))
     cbar = plt.colorbar()
-    plt.title(var_nice, fontsize="medium")
+    # plt.title(var_nice, fontsize="medium")
 
     cbar.ax.set_ylim(lim)
     plt.savefig(os.path.join(filepath_save, f"{archs[0]}_vs_{archs[1]}_{var_file}.pdf"))
