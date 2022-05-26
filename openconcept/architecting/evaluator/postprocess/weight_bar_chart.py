@@ -21,8 +21,18 @@ subcategories = [
 ]
 
 vars = [
-    [{"name": "ac|weights|W_battery_pass", "pkl": False}, {"name": "fuel burn", "pkl": True}, {"name": "Other propulsion"}],
-    [{"name": "climb.OEW_calc.W_wing", "pkl": False}, {"name": "climb.OEW_calc.W_fuselage", "pkl": False}, {"name": "climb.OEW_calc.W_gear", "pkl": False}, {"name": "climb.OEW_calc.W_empennage", "pkl": False}, {"name": "climb.OEW_calc.W_nacelle", "pkl": False}],
+    [
+        {"name": "ac|weights|W_battery_pass", "pkl": False},
+        {"name": "fuel burn", "pkl": True},
+        {"name": "Other propulsion"},
+    ],
+    [
+        {"name": "climb.OEW_calc.W_wing", "pkl": False},
+        {"name": "climb.OEW_calc.W_fuselage", "pkl": False},
+        {"name": "climb.OEW_calc.W_gear", "pkl": False},
+        {"name": "climb.OEW_calc.W_empennage", "pkl": False},
+        {"name": "climb.OEW_calc.W_nacelle", "pkl": False},
+    ],
     [{"name": "climb.OEW_calc.W_equipment", "pkl": False}],
     [{"name": "payload", "pkl": False}],
     [{"name": "climb.OEW_calc.W_fuelsystem", "pkl": False}, {"name": "climb.OEW_calc.W_fluids", "pkl": False}],
@@ -43,7 +53,7 @@ is_oneD = [
 payload = 453.592  # kg, 1000 lbs
 
 # ================= COLOR DEFINITION =================
-colors = ['#56b2f0', '#F0BC4A', '#E98F51', '#D47F82', '#A97B95']  # custom colors #4FA2CE old blue
+colors = ["#56b2f0", "#F0BC4A", "#E98F51", "#D47F82", "#A97B95"]  # custom colors #4FA2CE old blue
 # colors = [mcolor.rgb2hex(plt.colormaps["Set2"](i)) for i in range(len(categories))]
 alphas = np.linspace(0.2, 0.95, 10)[-1::-1]
 sub_colors = []
@@ -84,6 +94,7 @@ def expand_subcategories(vals_list):
         for item in sublist:
             result.append(item)
     return result
+
 
 # ================= COLLECT DATA AND PLOT =================
 nice.setRCParams(dark_mode=False, set_dark_background=False)
@@ -156,7 +167,7 @@ for i_c, c in enumerate(cases):
                     vals[-1].append(results[var["name"]])
                 else:
                     vals[-1].append(case.get_val(var["name"], units="kg").item())
-                
+
                 if subcat == "Fuel" and vals[-1][-1] == 0.0:
                     subcat_labels[i_cat][i_subcat] = None
 
@@ -164,7 +175,7 @@ for i_c, c in enumerate(cases):
 
         size = 0.3
         cmap = plt.colormaps["tab20c"]
-        outer_colors = cmap(np.arange(3)*4)
+        outer_colors = cmap(np.arange(3) * 4)
         inner_colors = cmap([1, 2, 5, 6, 9, 10])
 
         outer_vals = expand_subcategories(vals)
@@ -195,7 +206,7 @@ for i_c, c in enumerate(cases):
 
     nice.adjust_spines(ax, spines=["left", "bottom"])
     ax.spines["bottom"].set_position(("outward", 0))
-    ax.tick_params(axis='x', tick1On=False)
+    ax.tick_params(axis="x", tick1On=False)
 
     # Make label
     handles = []

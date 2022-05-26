@@ -17,7 +17,7 @@ obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
     {"var": "ac|propulsion|elec_engine|rating", "kwargs": {"lower": 1e-6, "ref": 5e2, "units": "kW"}},
-    {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 200., "ref": 5e2, "units": "kW"}},
+    {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 200.0, "ref": 5e2, "units": "kW"}},
 ]
 # Constraints to be enforced at every flight segment; full variable name will be
 # <mission segment>.<var name>
@@ -48,13 +48,21 @@ spec_energies = np.linspace(300, 800, 11)
 
 for mission_range in mission_ranges:
     prop_arch = PropSysArch(  # turboelectric with one engine and two motors
-        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
-                                gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(motors=[Motor('elec_motor', power_rating=600), Motor('elec_motor', power_rating=600)],
-                            inverters=Inverter('inverter')),
-        electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
-                                    engines_dc=(Engine(name='turboshaft', power_rating=1e3), Generator(name='generator'),
-                                                Rectifier(name='rectifier'))),
+        thrust=ThrustGenElements(
+            propellers=[Propeller("prop1"), Propeller("prop2")], gearboxes=[Gearbox("gearbox1"), Gearbox("gearbox2")]
+        ),
+        mech=MechPowerElements(
+            motors=[Motor("elec_motor", power_rating=600), Motor("elec_motor", power_rating=600)],
+            inverters=Inverter("inverter"),
+        ),
+        electric=ElectricPowerElements(
+            dc_bus=DCBus("elec_bus"),
+            engines_dc=(
+                Engine(name="turboshaft", power_rating=1e3),
+                Generator(name="generator"),
+                Rectifier(name="rectifier"),
+            ),
+        ),
     )
 
     p = opt_prob(
@@ -93,7 +101,7 @@ for mission_range in mission_ranges:
     results["battery energy"] = 0.0
     results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
     results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
-    results["cruise DoH"] = 0.
+    results["cruise DoH"] = 0.0
     results["S_ref"] = p.get_val("ac|geom|wing|S_ref", units="m**2").item()
 
     with open(os.path.join(filepath, f"range{int(mission_range)}nmi.pkl"), "wb") as f:

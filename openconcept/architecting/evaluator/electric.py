@@ -17,7 +17,7 @@ obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
     {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 500, "ref": 5e2, "units": "kW"}},
-    {"var": "ac|weights|W_battery", "kwargs": {"lower": 50, "ref": 1e3, "units": "kg"}}
+    {"var": "ac|weights|W_battery", "kwargs": {"lower": 50, "ref": 1e3, "units": "kg"}},
 ]
 # Constraints to be enforced at every flight segment; full variable name will be
 # <mission segment>.<var name>
@@ -53,7 +53,10 @@ for mission_range in mission_ranges:
                 propellers=[Propeller("prop1"), Propeller("prop2")],
                 gearboxes=[Gearbox("gearbox1"), Gearbox("gearbox2")],
             ),
-            mech=MechPowerElements(motors=[Motor("elec_motor", power_rating=600), Motor("elec_motor", power_rating=600)], inverters=Inverter("inverter")),
+            mech=MechPowerElements(
+                motors=[Motor("elec_motor", power_rating=600), Motor("elec_motor", power_rating=600)],
+                inverters=Inverter("inverter"),
+            ),
             electric=ElectricPowerElements(
                 dc_bus=DCBus("elec_bus"), batteries=Batteries("bat_pack", weight=3e3, specific_energy=e_batt)
             ),
@@ -76,7 +79,11 @@ for mission_range in mission_ranges:
         # p.run_model()
         p.run_driver()
         p.record("optimized")
-        om.n2(p, show_browser=False, outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}_n2.html"))
+        om.n2(
+            p,
+            show_browser=False,
+            outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}_n2.html"),
+        )
 
         # Set values in the results vector
         # Will have a dictionary containing:
@@ -93,11 +100,11 @@ for mission_range in mission_ranges:
         results["battery specific energy"] = e_batt
         results["fuel burn"] = 0.0
         results["fuel energy"] = 0.0
-        results["battery energy"] = 1. - p.get_val("descent.propmodel.elec.bat_pack.SOC_final").item()
+        results["battery energy"] = 1.0 - p.get_val("descent.propmodel.elec.bat_pack.SOC_final").item()
         results["battery energy"] *= e_batt / 1e3 * p.get_val("ac|weights|W_battery", units="kg").item()
         results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
         results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
-        results["cruise DoH"] = 1.
+        results["cruise DoH"] = 1.0
         results["S_ref"] = p.get_val("ac|geom|wing|S_ref", units="m**2").item()
 
         with open(os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}.pkl"), "wb") as f:

@@ -56,15 +56,24 @@ spec_energies = np.linspace(300, 800, 11)
 for mission_range in mission_ranges:
     for e_batt in spec_energies:
         prop_arch = PropSysArch(  # series hybrid with one engine, battery and two motors
-            thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
-                                    gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-            mech=MechPowerElements(motors=[Motor('elec_motor', power_rating=2000), Motor('elec_motor', power_rating=2000)],
-                                inverters=Inverter('inverter')),
-            electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
-                                        splitter=ElecSplitter('splitter', elec_DoH=0.25),  # 0.4 hybridization to match parallel
-                                        batteries=Batteries('bat_pack', weight=4e3, specific_energy=e_batt),
-                                        engines_dc=(Engine(name='turboshaft', power_rating=2e3), Generator(name='generator'),
-                                                    Rectifier(name='rectifier'))),
+            thrust=ThrustGenElements(
+                propellers=[Propeller("prop1"), Propeller("prop2")],
+                gearboxes=[Gearbox("gearbox1"), Gearbox("gearbox2")],
+            ),
+            mech=MechPowerElements(
+                motors=[Motor("elec_motor", power_rating=2000), Motor("elec_motor", power_rating=2000)],
+                inverters=Inverter("inverter"),
+            ),
+            electric=ElectricPowerElements(
+                dc_bus=DCBus("elec_bus"),
+                splitter=ElecSplitter("splitter", elec_DoH=0.25),  # 0.4 hybridization to match parallel
+                batteries=Batteries("bat_pack", weight=4e3, specific_energy=e_batt),
+                engines_dc=(
+                    Engine(name="turboshaft", power_rating=2e3),
+                    Generator(name="generator"),
+                    Rectifier(name="rectifier"),
+                ),
+            ),
         )
 
         p = opt_prob(
@@ -82,7 +91,11 @@ for mission_range in mission_ranges:
         p.set_val("mission_range", mission_range, units="nmi")
         p.run_driver()
         p.record("optimized")
-        om.n2(p, show_browser=False, outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}_n2.html"))
+        om.n2(
+            p,
+            show_browser=False,
+            outfile=os.path.join(filepath, f"range{int(mission_range)}nmi_eBatt{int(e_batt)}_n2.html"),
+        )
 
         # Set values in the results vector
         # Will have a dictionary containing:
@@ -101,7 +114,7 @@ for mission_range in mission_ranges:
         results["fuel burn"] = p.get_val("descent.fuel_used_final", units="kg").item()
         # Jet A specific energy is 11.95 kWh/kg
         results["fuel energy"] = 11.95 * p.get_val("descent.fuel_used_final", units="kg").item()
-        results["battery energy"] = 1. - p.get_val("descent.propmodel.elec.bat_pack.SOC_final").item()
+        results["battery energy"] = 1.0 - p.get_val("descent.propmodel.elec.bat_pack.SOC_final").item()
         results["battery energy"] *= e_batt / 1e3 * p.get_val("ac|weights|W_battery", units="kg").item()
         results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
         results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()

@@ -261,7 +261,7 @@ class DynamicACModel(oc.IntegratorGroup):
             "OEW_calc",
             weight,
             promotes_inputs=["ac|*", "propulsion_system_weight", ("P_TO", "ac|propulsion|engine|rating")],
-            promotes_outputs=["ac|weights|OEW"]
+            promotes_outputs=["ac|weights|OEW"],
         )
 
         # Integrate fuel flow
@@ -291,10 +291,15 @@ class DynamicACModel(oc.IntegratorGroup):
 
         # Calculate total fuel used in this mission segment
         self.add_subsystem(
-            'seg_fuel_used', om.ExecComp(['seg_fuel_used=sum(fuel_used)'],
-                                         seg_fuel_used={'val': 1.0, 'units': 'kg'},
-                                         fuel_used={'val': np.ones((nn,)), 'units': 'kg'},
-                                         ), promotes_inputs=['*'], promotes_outputs=['*'])
+            "seg_fuel_used",
+            om.ExecComp(
+                ["seg_fuel_used=sum(fuel_used)"],
+                seg_fuel_used={"val": 1.0, "units": "kg"},
+                fuel_used={"val": np.ones((nn,)), "units": "kg"},
+            ),
+            promotes_inputs=["*"],
+            promotes_outputs=["*"],
+        )
 
 
 # class MissionWrapper(om.Group):
@@ -311,7 +316,7 @@ class DynamicACModel(oc.IntegratorGroup):
 #         self.set_order([inp_comp.name, 'mission'])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     from oad_oc_link.missions.mission_profiles import MissionWithReserve
     from openconcept.analysis.performance.mission_profiles import FullMissionAnalysis
 
@@ -358,30 +363,39 @@ if __name__ == '__main__':
     # )
     #
     arch = PropSysArch(  # parallel hybrid system
-        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
-                                 gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')],
-                               motors=[Motor('motor'), Motor('motor')],
-                               mech_buses=MechBus('mech_bus'),
-                               mech_splitters=MechSplitter('mech_splitter'),
-                               inverters=Inverter('inverter')),
-        electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
-                                       batteries=Batteries('bat_pack')),
+        thrust=ThrustGenElements(
+            propellers=[Propeller("prop1"), Propeller("prop2")], gearboxes=[Gearbox("gearbox1"), Gearbox("gearbox2")]
+        ),
+        mech=MechPowerElements(
+            engines=[Engine("turboshaft"), Engine("turboshaft")],
+            motors=[Motor("motor"), Motor("motor")],
+            mech_buses=MechBus("mech_bus"),
+            mech_splitters=MechSplitter("mech_splitter"),
+            inverters=Inverter("inverter"),
+        ),
+        electric=ElectricPowerElements(dc_bus=DCBus("elec_bus"), batteries=Batteries("bat_pack")),
     )
 
     prob = om.Problem()
     prob.model = grp = om.Group()
-    arch.create_top_level(grp, ['v0v1', 'v1vr', 'rotate', 'v1v0', 'engineoutclimb', 'climb', 'cruise', 'descent'],
-                          'propmodel')
-    grp.add_subsystem('analysis', FullMissionAnalysis(
-        num_nodes=11, aircraft_model=DynamicACModel.factory(arch),
-    ), promotes_inputs=['*'], promotes_outputs=['*'])
+    arch.create_top_level(
+        grp, ["v0v1", "v1vr", "rotate", "v1v0", "engineoutclimb", "climb", "cruise", "descent"], "propmodel"
+    )
+    grp.add_subsystem(
+        "analysis",
+        FullMissionAnalysis(
+            num_nodes=11,
+            aircraft_model=DynamicACModel.factory(arch),
+        ),
+        promotes_inputs=["*"],
+        promotes_outputs=["*"],
+    )
 
-    grp.add_design_var('ac|propulsion|mech_engine|rating', lower=50, upper=2000)
-    grp.add_design_var('ac|propulsion|motor|rating', lower=50, upper=2000)
-    grp.add_design_var('ac|weights|W_battery', lower=100, upper=3000)
+    grp.add_design_var("ac|propulsion|mech_engine|rating", lower=50, upper=2000)
+    grp.add_design_var("ac|propulsion|motor|rating", lower=50, upper=2000)
+    grp.add_design_var("ac|weights|W_battery", lower=100, upper=3000)
     # grp.add_design_var('ac|propulsion|elec_engine|rating', lower=50, upper=2000)
-    grp.add_design_var('ac|propulsion|mech_splitter|mech_DoH', lower=0.01, upper=0.99)  # used for parallel hybrid
+    grp.add_design_var("ac|propulsion|mech_splitter|mech_DoH", lower=0.01, upper=0.99)  # used for parallel hybrid
     # grp.add_design_var('ac|propulsion|elec_splitter|elec_DoH', lower=0.01, upper=0.99)  # used for series hybrid
 
     prob.setup()

@@ -7,13 +7,7 @@ import openmdao.api as om
 from openconcept.architecting.evaluator.postprocess.utils import get_snopt_exit
 
 # ================= PLOT SETTINGS =================
-archs = [
-    "electric",
-    "series_hybrid",
-    "parallel_hybrid",
-    "conventional",
-    "turboelectric"
-]
+archs = ["electric", "series_hybrid", "parallel_hybrid", "conventional", "turboelectric"]
 is_oneD = [
     False,
     False,
@@ -22,7 +16,18 @@ is_oneD = [
     True,
 ]  # True if only sweep over mission range and not battery spec energy (because no battery)
 
-variable = ["mixed objective", "MTOW", "energy", "cruise DoH", "payload_frac", "batt_frac", "prop_sys_frac", "bfl", "motor_rating", "eng_rating"]
+variable = [
+    "mixed objective",
+    "MTOW",
+    "energy",
+    "cruise DoH",
+    "payload_frac",
+    "batt_frac",
+    "prop_sys_frac",
+    "bfl",
+    "motor_rating",
+    "eng_rating",
+]
 nice_var_name = [
     "Fuel burn + MTOW / 100 (kg)",
     "MTOW (kg)",
@@ -35,18 +40,29 @@ nice_var_name = [
     "Parallel hybrid motor rating (kW)",
     "Parallel hybrid engine rating (kW)",
 ]
-file_var_name = ["obj", "mtow", "energy", "cruise_doh", "payload_frac", "batt_frac", "prop_sys_frac", "bfl", "motor_rating", "eng_rating"]
+file_var_name = [
+    "obj",
+    "mtow",
+    "energy",
+    "cruise_doh",
+    "payload_frac",
+    "batt_frac",
+    "prop_sys_frac",
+    "bfl",
+    "motor_rating",
+    "eng_rating",
+]
 cbar_lim = [
     (39.07724584033572, 818.8),
-    (3078.8021790291486, 5700.),
+    (3078.8021790291486, 5700.0),
     (598.4980632723381, 9349.168),
     (0.0, 1.0),
     (0.0, 0.1474),
     (0.0, 0.3253),
     (0.2, 0.4527),
-    (0., 4452.),
-    (0., 400.),
-    (0., 570.),
+    (0.0, 4452.0),
+    (0.0, 400.0),
+    (0.0, 570.0),
 ]  # colorbar limits for each variable (currently set as variables' min and max values across all architectures)
 
 payload = 453.592  # kg, 1000 lbs
@@ -103,7 +119,7 @@ for i_arch, arch in enumerate(archs):
                 except FileNotFoundError:
                     data[i, j] = np.NaN
                     continue
-                
+
                 # Only plot if the SNOPT exit code is 0/1
                 exit_code = get_snopt_exit(os.path.join(filepath, filename + "_SNOPT_print.out"))
                 if exit_code != (0, 1):
@@ -134,7 +150,10 @@ for i_arch, arch in enumerate(archs):
 
                     results["batt_frac"] = W_batt / results["MTOW"]
                     results["prop_sys_frac"] = W_prop_sys / results["MTOW"]
-                    results["bfl"] = max(case.get_val("rotate.range_final", units="ft").item(), case.get_val("v1v0.range_final", units="ft").item())
+                    results["bfl"] = max(
+                        case.get_val("rotate.range_final", units="ft").item(),
+                        case.get_val("v1v0.range_final", units="ft").item(),
+                    )
 
                     if var in ["motor_rating", "eng_rating"]:
                         results["motor_rating"] = case.get_val("ac|propulsion|motor|rating", units="kW").item()

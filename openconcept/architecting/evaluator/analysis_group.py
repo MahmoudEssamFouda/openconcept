@@ -114,7 +114,12 @@ class DynamicKingAirAnalysisGroup(om.Group):
         )
         self.connect("descent.fuel_used_final", "aug_obj.fuel_burn")
 
-        self.add_subsystem("energy", EnergyObjective(), promotes_inputs=[("W_battery", "ac|weights|W_battery")], promotes_outputs=["energy_used"])
+        self.add_subsystem(
+            "energy",
+            EnergyObjective(),
+            promotes_inputs=[("W_battery", "ac|weights|W_battery")],
+            promotes_outputs=["energy_used"],
+        )
         self.connect("descent.fuel_used_final", "energy.fuel_burn")
 
         # If there is a battery in the model, connect the state of charge at the end
@@ -138,24 +143,27 @@ class AugmentedFBObjective(om.ExplicitComponent):
 class EnergyObjective(om.ExplicitComponent):
     def initialize(self):
         self.options.declare("e_fuel", default=11.95e3, desc="Specific energy of Jet A-1 (Wh/kg)")
+
     def setup(self):
         self.add_input("fuel_burn", units="kg")
-        self.add_input("W_battery", val=0., units="kg")
-        self.add_input("e_battery", val=300., units="W*h/kg")
-        self.add_input("SOC_init", val=1.)
-        self.add_input("SOC_final", val=0.)
+        self.add_input("W_battery", val=0.0, units="kg")
+        self.add_input("e_battery", val=300.0, units="W*h/kg")
+        self.add_input("SOC_init", val=1.0)
+        self.add_input("SOC_final", val=0.0)
         self.add_output("energy_used", units="W*h")
         self.declare_partials(["energy_used"], ["fuel_burn", "W_battery", "e_battery", "SOC_init", "SOC_final"])
 
     def compute(self, inputs, outputs):
-        outputs["energy_used"] = inputs["fuel_burn"] * self.options["e_fuel"] + inputs["W_battery"] * inputs["e_battery"] * (inputs["SOC_init"] - inputs["SOC_final"])
-    
+        outputs["energy_used"] = inputs["fuel_burn"] * self.options["e_fuel"] + inputs["W_battery"] * inputs[
+            "e_battery"
+        ] * (inputs["SOC_init"] - inputs["SOC_final"])
+
     def compute_partials(self, inputs, J):
         J["energy_used", "fuel_burn"] = self.options["e_fuel"]
         J["energy_used", "W_battery"] = inputs["e_battery"] * (inputs["SOC_init"] - inputs["SOC_final"])
         J["energy_used", "e_battery"] = inputs["W_battery"] * (inputs["SOC_init"] - inputs["SOC_final"])
         J["energy_used", "SOC_init"] = inputs["W_battery"] * inputs["e_battery"]
-        J["energy_used", "SOC_final"] = - inputs["W_battery"] * inputs["e_battery"]
+        J["energy_used", "SOC_final"] = -inputs["W_battery"] * inputs["e_battery"]
 
 
 def opt_prob(
@@ -294,7 +302,7 @@ def add_recorder(prob, filename="data.sql"):
     prob.driver.add_recorder(recorder)
 
 
-def set_problem_vars(prob, num_nodes=11, e_batt=300.):
+def set_problem_vars(prob, num_nodes=11, e_batt=300.0):
     """
     Sets mission profile and payload values. Also sets takeoff speed
     guesses (to improve convergence) and takeoff throttles.

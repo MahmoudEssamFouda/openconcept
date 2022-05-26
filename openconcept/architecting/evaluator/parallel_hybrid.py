@@ -17,7 +17,7 @@ from openconcept.architecting.builder.architecture import *
 obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
-    {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 100., "ref": 5e2, "units": "kW"}},
+    {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 100.0, "ref": 5e2, "units": "kW"}},
     {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 0.1, "ref": 5e2, "units": "kW"}},
     {"var": "ac|weights|W_battery", "kwargs": {"lower": 0.1, "ref": 1e3, "units": "kg"}},
     {"var": "cruise_DoH", "kwargs": {"lower": 0.01, "upper": 0.99}},
@@ -52,6 +52,7 @@ class ParallelHybridModel(om.Group):
             promotes=["*"],
         )
         self.connect("cruise_DoH", ["cruise.propmodel.mech.mech1.mech_DoH", "cruise.propmodel.mech.mech2.mech_DoH"])
+
 
 # Generate constraints necessary for every mission segment
 segments = ["v0v1", "v1vr", "rotate", "v1v0", "engineoutclimb", "climb", "cruise", "descent"]

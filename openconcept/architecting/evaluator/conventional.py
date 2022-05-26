@@ -80,7 +80,7 @@ for mission_range in mission_ranges:
     results["battery energy"] = 0.0
     results["MTOW"] = p.get_val("ac|weights|MTOW", units="kg").item()
     results["mixed objective"] = p.get_val("mixed_objective", units="kg").item()
-    results["cruise DoH"] = 0.
+    results["cruise DoH"] = 0.0
     results["S_ref"] = p.get_val("ac|geom|wing|S_ref", units="m**2").item()
 
     with open(os.path.join(filepath, f"range{int(mission_range)}nmi.pkl"), "wb") as f:

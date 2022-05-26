@@ -1,5 +1,6 @@
 import re
 
+
 def get_snopt_exit(file):
     """Scrape the SNOPT exit and info code from summary or print file.
 

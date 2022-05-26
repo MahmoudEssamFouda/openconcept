@@ -18,8 +18,18 @@ subcategories = [
 ]
 
 vars = [
-    [{"name": "ac|weights|W_battery_pass", "pkl": False}, {"name": "fuel burn", "pkl": True}, {"name": "Other propulsion"}],
-    [{"name": "climb.OEW_calc.W_wing", "pkl": False}, {"name": "climb.OEW_calc.W_fuselage", "pkl": False}, {"name": "climb.OEW_calc.W_gear", "pkl": False}, {"name": "climb.OEW_calc.W_empennage", "pkl": False}, {"name": "climb.OEW_calc.W_nacelle", "pkl": False}],
+    [
+        {"name": "ac|weights|W_battery_pass", "pkl": False},
+        {"name": "fuel burn", "pkl": True},
+        {"name": "Other propulsion"},
+    ],
+    [
+        {"name": "climb.OEW_calc.W_wing", "pkl": False},
+        {"name": "climb.OEW_calc.W_fuselage", "pkl": False},
+        {"name": "climb.OEW_calc.W_gear", "pkl": False},
+        {"name": "climb.OEW_calc.W_empennage", "pkl": False},
+        {"name": "climb.OEW_calc.W_nacelle", "pkl": False},
+    ],
     [{"name": "climb.OEW_calc.W_equipment", "pkl": False}],
     [{"name": "payload", "pkl": False}],
     [{"name": "climb.OEW_calc.W_fuelsystem", "pkl": False}, {"name": "climb.OEW_calc.W_fluids", "pkl": False}],
@@ -39,7 +49,7 @@ is_oneD = [
 payload = 453.592  # kg, 1000 lbs
 
 # ================= COLOR DEFINITION =================
-colors = ['#56b2f0', '#F0BC4A', '#E98F51', '#D47F82', '#A97B95']  # custom colors #4FA2CE old blue
+colors = ["#56b2f0", "#F0BC4A", "#E98F51", "#D47F82", "#A97B95"]  # custom colors #4FA2CE old blue
 # colors = [mcolor.rgb2hex(plt.colormaps["Set2"](i)) for i in range(len(categories))]
 alphas = np.linspace(0.2, 0.95, 10)[-1::-1]
 sub_colors = []
@@ -80,6 +90,7 @@ def expand_subcategories(vals_list):
         for item in sublist:
             result.append(item)
     return result
+
 
 # ================= COLLECT DATA AND PLOT =================
 nice.setRCParams(dark_mode=False, set_dark_background=False)
@@ -144,7 +155,7 @@ for i_arch, arch in enumerate(archs):
                     vals[-1].append(results[var["name"]])
                 else:
                     vals[-1].append(case.get_val(var["name"], units="kg").item())
-                
+
                 if subcat == "Fuel" and vals[-1][-1] == 0.0:
                     subcat_labels[i_cat][i_subcat] = None
 
@@ -155,7 +166,7 @@ for i_arch, arch in enumerate(archs):
         nice_arch = arch.capitalize().replace("_", " ")
         size = 0.3
         cmap = plt.colormaps["tab20c"]
-        outer_colors = cmap(np.arange(3)*4)
+        outer_colors = cmap(np.arange(3) * 4)
         inner_colors = cmap([1, 2, 5, 6, 9, 10])
 
         outer_vals = expand_subcategories(vals)
@@ -166,13 +177,27 @@ for i_arch, arch in enumerate(archs):
                 continue
             outer_labels[i_lab] += f"\n{outer_vals[i_lab] / results['MTOW'] * 100:1.1f}%"
 
-        _, outer_text = ax.pie(outer_vals, radius=1, colors=outer_colors,
-            wedgeprops=dict(width=size, edgecolor=None), textprops=dict(rotation_mode='anchor', va='center', ha='center', color="w"),
-            labels=outer_labels, rotatelabels=False, labeldistance=.85)
+        _, outer_text = ax.pie(
+            outer_vals,
+            radius=1,
+            colors=outer_colors,
+            wedgeprops=dict(width=size, edgecolor=None),
+            textprops=dict(rotation_mode="anchor", va="center", ha="center", color="w"),
+            labels=outer_labels,
+            rotatelabels=False,
+            labeldistance=0.85,
+        )
 
-        _, inner_text = ax.pie(sum_categories(vals), radius=1-size-0.01, colors=colors,
-            wedgeprops=dict(width=size, edgecolor=None), textprops=dict(rotation_mode='anchor', va='center', ha='center', color="w"),
-            labels=categories, rotatelabels=False, labeldistance=.75)
+        _, inner_text = ax.pie(
+            sum_categories(vals),
+            radius=1 - size - 0.01,
+            colors=colors,
+            wedgeprops=dict(width=size, edgecolor=None),
+            textprops=dict(rotation_mode="anchor", va="center", ha="center", color="w"),
+            labels=categories,
+            rotatelabels=False,
+            labeldistance=0.75,
+        )
 
         ax.set(aspect="equal")
         ax.set_title(f"{nice_arch}, {mission_range} nmi and {e_batt} Wh/kg", y=0.935, fontsize="medium")
@@ -190,7 +215,12 @@ for i_arch, arch in enumerate(archs):
             inner_text[0].set_fontsize(10)
 
         # Hack the matplotlib pie chart command to put text in the center
-        ax.pie([1.], radius=0.01, colors=["w"], labels=[f"MTOW\n{results['MTOW']:0.0f} kg"], textprops=dict(rotation_mode='anchor', va='center', ha='center'))
+        ax.pie(
+            [1.0],
+            radius=0.01,
+            colors=["w"],
+            labels=[f"MTOW\n{results['MTOW']:0.0f} kg"],
+            textprops=dict(rotation_mode="anchor", va="center", ha="center"),
+        )
 
         fig.savefig(os.path.join(filepath_save, f"{arch}_weight_{mission_range}nmi_eBatt{e_batt}.pdf"))
-    
