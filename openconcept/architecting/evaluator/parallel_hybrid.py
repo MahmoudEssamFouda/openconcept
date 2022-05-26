@@ -17,7 +17,7 @@ from openconcept.architecting.builder.architecture import *
 obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
-    {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 0.1, "ref": 5e2, "units": "kW"}},
+    {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 100., "ref": 5e2, "units": "kW"}},
     {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 0.1, "ref": 5e2, "units": "kW"}},
     {"var": "ac|weights|W_battery", "kwargs": {"lower": 0.1, "ref": 1e3, "units": "kg"}},
     {"var": "cruise_DoH", "kwargs": {"lower": 0.01, "upper": 0.99}},
@@ -61,14 +61,16 @@ for seg_con in seg_cons:
         cons[-1]["var"] = ".".join((seg, cons[-1]["var"]))
 
 curDir = os.path.abspath(os.path.dirname(__file__))
-filepath = os.path.join(curDir, "data", "parallel_hybrid")
+filepath = os.path.join(curDir, "data", "mtow_bound", "grid", "parallel_hybrid")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
-mission_ranges = np.linspace(300, 800, 10)
-spec_energies = np.linspace(300, 800, 10)
+mission_ranges = np.linspace(300, 800, 11)
+spec_energies = np.linspace(300, 800, 11)
 
-spec_energies = spec_energies[2:3]#[-1::-1]
-mission_ranges = mission_ranges[6:7]
+# mission_ranges = [350.]  # nmi
+# spec_energies = [300., 350., 400., 450., 500., 550., 600., 650., 700., 750., 800.]  # Wh/kg
+# spec_energies = [499.]  # Wh/kg
+# spec_energies = [600., 650., 700., 750., 800.]  # Wh/kg
 
 for mission_range in mission_ranges:
     for e_batt in spec_energies:
@@ -81,7 +83,7 @@ for mission_range in mission_ranges:
                 engines=[Engine("turboshaft", power_rating=600), Engine("turboshaft", power_rating=600)],
                 motors=[Motor("motor", power_rating=250), Motor("motor", power_rating=250)],
                 mech_buses=MechBus("mech_bus"),
-                mech_splitters=MechSplitter("mech_splitter", mech_DoH=0.4),
+                mech_splitters=MechSplitter("mech_splitter", mech_DoH=0.25),
                 inverters=Inverter("inverter"),
             ),
             electric=ElectricPowerElements(

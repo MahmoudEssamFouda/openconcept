@@ -16,8 +16,8 @@ from openconcept.architecting.builder.architecture import *
 obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
-    {"var": "ac|propulsion|elec_engine|rating", "kwargs": {"lower": 0., "ref": 5e2, "units": "kW"}},
-    {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 200, "ref": 5e2, "units": "kW"}},
+    {"var": "ac|propulsion|elec_engine|rating", "kwargs": {"lower": 1e-6, "ref": 5e2, "units": "kW"}},
+    {"var": "ac|propulsion|motor|rating", "kwargs": {"lower": 200., "ref": 5e2, "units": "kW"}},
 ]
 # Constraints to be enforced at every flight segment; full variable name will be
 # <mission segment>.<var name>
@@ -37,11 +37,14 @@ for seg_con in seg_cons:
         cons[-1]["var"] = ".".join((seg, cons[-1]["var"]))
 
 curDir = os.path.abspath(os.path.dirname(__file__))
-filepath = os.path.join(curDir, "data", "turboelectric")
+filepath = os.path.join(curDir, "data", "mtow_bound", "grid", "turboelectric")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
-mission_ranges = np.linspace(300, 800, 10)
-spec_energies = np.linspace(300, 800, 10)
+mission_ranges = np.linspace(300, 800, 11)
+spec_energies = np.linspace(300, 800, 11)
+
+# mission_ranges = [300., 500.]  # nmi
+# spec_energies = [500]  # Wh/kg
 
 for mission_range in mission_ranges:
     prop_arch = PropSysArch(  # turboelectric with one engine and two motors

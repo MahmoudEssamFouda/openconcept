@@ -262,7 +262,7 @@ def opt_prob(
     # Use the optimizer to solve for initial weight (called MTOW here) by having initial
     # weight as a design variable and preventing the final weight from being less than
     # the zero fuel weight (OEW + payload)
-    prob.model.add_design_var("ac|weights|MTOW", lower=1e3, ref=5e3)
+    prob.model.add_design_var("ac|weights|MTOW", lower=1e3, upper=5.7e3, ref=5e3)
     prob.model.add_constraint("TOW_margin.residual", lower=0.0)
 
     # Balanced field length must be at least as good as baseline

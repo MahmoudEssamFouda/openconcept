@@ -25,7 +25,7 @@ prop_arch = PropSysArch(  # Conventional with gearbox
 obj = {"var": "mixed_objective"}
 DVs = [
     {"var": "ac|propulsion|propeller|diameter", "kwargs": {"lower": 2.2, "units": "m"}},
-    {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 400, "upper": 1e3, "ref": 5e2, "units": "kW"}},
+    {"var": "ac|propulsion|mech_engine|rating", "kwargs": {"lower": 500, "ref": 5e2, "units": "kW"}},
 ]
 cons = [
     {"var": "climb.throttle", "kwargs": {"lower": 0.0, "upper": 1.0}},
@@ -34,11 +34,14 @@ cons = [
 ]
 
 curDir = os.path.abspath(os.path.dirname(__file__))
-filepath = os.path.join(curDir, "data", "conventional")
+filepath = os.path.join(curDir, "data", "mtow_bound", "grid", "conventional")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
-mission_ranges = np.linspace(300, 800, 10)
-spec_energies = np.linspace(300, 800, 10)
+mission_ranges = np.linspace(300, 800, 11)
+spec_energies = np.linspace(300, 800, 11)
+
+# mission_ranges = [300., 500.]  # nmi
+# spec_energies = [500]  # Wh/kg
 
 for mission_range in mission_ranges:
     p = opt_prob(

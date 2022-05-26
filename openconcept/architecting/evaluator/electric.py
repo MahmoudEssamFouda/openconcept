@@ -37,16 +37,14 @@ for seg_con in seg_cons:
         cons[-1]["var"] = ".".join((seg, cons[-1]["var"]))
 
 curDir = os.path.abspath(os.path.dirname(__file__))
-filepath = os.path.join(curDir, "data", "electric")
+filepath = os.path.join(curDir, "data", "mtow_bound", "grid", "electric")
 Path(filepath).mkdir(parents=True, exist_ok=True)
 
-mission_ranges = np.linspace(300, 800, 10)
-spec_energies = np.linspace(300, 800, 10)
+mission_ranges = np.linspace(300, 800, 11)
+spec_energies = np.linspace(300, 800, 11)
 
-spec_energies = spec_energies[-1::-1]
-# mission_ranges = mission_ranges[0:4]
-# mission_ranges = mission_ranges[4:7]
-mission_ranges = mission_ranges[9:]
+# mission_ranges = [300.]  # nmi (skip 500 case because it can't be feasible with MTOW bound)
+# spec_energies = [500]  # Wh/kg
 
 for mission_range in mission_ranges:
     for e_batt in spec_energies:
