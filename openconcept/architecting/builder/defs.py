@@ -27,13 +27,13 @@ Contact: jasper.bussemaker@dlr.de
 from typing import *
 from dataclasses import dataclass
 
-__all__ = ['ArchElement', 'ArchSubSystem', 'WEIGHT_OUTPUT', 'DURATION_INPUT', 'FLTCOND_RHO_INPUT', 'FLTCOND_TAS_INPUT']
+__all__ = ["ArchElement", "ArchSubSystem", "WEIGHT_OUTPUT", "DURATION_INPUT", "FLTCOND_RHO_INPUT", "FLTCOND_TAS_INPUT"]
 
-DURATION_INPUT = 'duration'
-FLTCOND_RHO_INPUT = 'fltcond|rho'
-FLTCOND_TAS_INPUT = 'fltcond|Utrue'
+DURATION_INPUT = "duration"
+FLTCOND_RHO_INPUT = "fltcond|rho"
+FLTCOND_TAS_INPUT = "fltcond|Utrue"
 
-WEIGHT_OUTPUT = 'subsystem_weight'
+WEIGHT_OUTPUT = "subsystem_weight"
 
 
 @dataclass(frozen=False)

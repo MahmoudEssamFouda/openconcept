@@ -8,15 +8,14 @@ from builder.tests.dynamic_turboelectric_twin_prop_test import DynamicTurboelect
 from builder.tests.dynamic_parallel_hybrid_twin_prop_test import DynamicParallelHybridTwinTurbopropTestCase
 
 # tests to be added for more prop systems that can be constructed with current functionality
-    # fully electric distributed propulsion system with any number of propellers
-    # turboelectric distributed propulsion system with any number of propellers and one engine chain
-    # series distributed propulsion system with any number of propellers and one engine chain and one battery pack
+# fully electric distributed propulsion system with any number of propellers
+# turboelectric distributed propulsion system with any number of propellers and one engine chain
+# series distributed propulsion system with any number of propellers and one engine chain and one battery pack
 
 # possible expansions with current interface
-    # AC architectures
-    # mutliple engines chains
-    # multiple battery backs
+# AC architectures
+# mutliple engines chains
+# multiple battery backs
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
-

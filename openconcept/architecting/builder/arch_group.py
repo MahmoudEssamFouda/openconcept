@@ -31,7 +31,7 @@ import openmdao.api as om
 from openconcept.architecting.builder.utils import *
 from openconcept.architecting.builder.architecture import *
 
-__all__ = ['DynamicPropulsionArchitecture']
+__all__ = ["DynamicPropulsionArchitecture"]
 
 
 class DynamicPropulsionArchitecture(om.Group):
@@ -75,24 +75,28 @@ class DynamicPropulsionArchitecture(om.Group):
     """
 
     def initialize(self):
-        self.options.declare('num_nodes', default=1, desc="Number of mission analysis points to run")
-        self.options.declare('architecture', types=PropSysArch, desc='The propulsion system architecture definition')
+        self.options.declare("num_nodes", default=1, desc="Number of mission analysis points to run")
+        self.options.declare("architecture", types=PropSysArch, desc="The propulsion system architecture definition")
 
     def setup(self):
-        nn = self.options['num_nodes']
-        arch: PropSysArch = self.options['architecture']
+        nn = self.options["num_nodes"]
+        arch: PropSysArch = self.options["architecture"]
 
         # Define inputs
         main_prop = arch.thrust.propellers[0]
-        default_rpm = 2000. if main_prop is None else main_prop.default_rpm
-        input_comp, input_map = collect_inputs(self, [
-            (RPM_INPUT, 'rpm', np.tile(default_rpm, nn)),
-            (THROTTLE_INPUT, None, np.tile(1., nn)),
-            (DURATION_INPUT, 's', 1.),
-            (ACTIVE_INPUT, None, np.tile(1., nn)),
-            (FLTCOND_RHO_INPUT, 'kg/m**3', np.tile(1.225, nn)),
-            (FLTCOND_TAS_INPUT, 'm/s', np.tile(100., nn)),
-        ], name="propmodel_in_collect")
+        default_rpm = 2000.0 if main_prop is None else main_prop.default_rpm
+        input_comp, input_map = collect_inputs(
+            self,
+            [
+                (RPM_INPUT, "rpm", np.tile(default_rpm, nn)),
+                (THROTTLE_INPUT, None, np.tile(1.0, nn)),
+                (DURATION_INPUT, "s", 1.0),
+                (ACTIVE_INPUT, None, np.tile(1.0, nn)),
+                (FLTCOND_RHO_INPUT, "kg/m**3", np.tile(1.225, nn)),
+                (FLTCOND_TAS_INPUT, "m/s", np.tile(100.0, nn)),
+            ],
+            name="propmodel_in_collect",
+        )
         order = [input_comp.name]
 
         subsys_groups = []
@@ -105,15 +109,15 @@ class DynamicPropulsionArchitecture(om.Group):
         thrust_groups = arch.thrust.create_thrust_groups(self, nn)
         subsys_groups += thrust_groups.copy()
 
-        weight_outputs += [grp.name + '.' + WEIGHT_OUTPUT for grp in thrust_groups]
-        thrust_outputs += [grp.name + '.' + THRUST_OUTPUT for grp in thrust_groups]
+        weight_outputs += [grp.name + "." + WEIGHT_OUTPUT for grp in thrust_groups]
+        thrust_outputs += [grp.name + "." + THRUST_OUTPUT for grp in thrust_groups]
 
         # Create mechanical power generation groups: motors or engines connected to the propellers
         mech_group, electric_power_gen_needed = arch.mech.create_mech_group(self, thrust_groups, nn)
         subsys_groups += [mech_group]
 
-        fuel_flow_outputs += [mech_group.name + '.' + FUEL_FLOW_OUTPUT]
-        weight_outputs += [mech_group.name + '.' + WEIGHT_OUTPUT]
+        fuel_flow_outputs += [mech_group.name + "." + FUEL_FLOW_OUTPUT]
+        weight_outputs += [mech_group.name + "." + WEIGHT_OUTPUT]
 
         order += [mech_group.name]
         order += [grp.name for grp in thrust_groups]
@@ -121,21 +125,21 @@ class DynamicPropulsionArchitecture(om.Group):
         # If needed, create electrical power generation groups: batteries, engines, etc.
         if electric_power_gen_needed:
             if arch.electric is None:
-                raise RuntimeError('Electrical power generation is needed but no `ElectricPowerElements` is defined!')
+                raise RuntimeError("Electrical power generation is needed but no `ElectricPowerElements` is defined!")
 
             elec_group = arch.electric.create_electric_group(self, mech_group, thrust_groups, nn)
             subsys_groups += [elec_group]
 
-            fuel_flow_outputs += [elec_group.name + '.' + FUEL_FLOW_OUTPUT]
-            weight_outputs += [elec_group.name + '.' + WEIGHT_OUTPUT]
-            soc_outputs += [elec_group.name + '.' + SOC_OUTPUT]
+            fuel_flow_outputs += [elec_group.name + "." + FUEL_FLOW_OUTPUT]
+            weight_outputs += [elec_group.name + "." + WEIGHT_OUTPUT]
+            soc_outputs += [elec_group.name + "." + SOC_OUTPUT]
 
             order += [elec_group.name]
 
         # Connect inputs
         def _connect_input(input_name: str, groups: List[om.Group], group_input_name: str = None):
             for group in groups:
-                self.connect(input_map[input_name], group.name + '.' + (group_input_name or input_name))
+                self.connect(input_map[input_name], group.name + "." + (group_input_name or input_name))
 
         _connect_input(RPM_INPUT, thrust_groups)
         _connect_input(THROTTLE_INPUT, [mech_group])
@@ -146,18 +150,27 @@ class DynamicPropulsionArchitecture(om.Group):
         _connect_input(FLTCOND_TAS_INPUT, subsys_groups)
 
         # Create summed outputs
-        ff_comp = create_output_sum(self, 'fuel_flow', fuel_flow_outputs, 'kg/s', n=nn)
-        wt_comp = create_output_sum(self, 'propulsion_system_weight', weight_outputs, 'kg')
-        th_comp = create_output_sum(self, 'thrust', thrust_outputs, 'N', n=nn)
-        soc_comp = create_output_sum(self, 'SOC', soc_outputs, n=nn)
+        ff_comp = create_output_sum(self, "fuel_flow", fuel_flow_outputs, "kg/s", n=nn)
+        wt_comp = create_output_sum(self, "propulsion_system_weight", weight_outputs, "kg")
+        th_comp = create_output_sum(self, "thrust", thrust_outputs, "N", n=nn)
+        soc_comp = create_output_sum(self, "SOC", soc_outputs, n=nn)
 
         order += [ff_comp.name, wt_comp.name, th_comp.name, soc_comp.name]
 
         # Define order to reduce feedback connections
         self.set_order(order)
 
+        # self.nonlinear_solver = om.NewtonSolver(iprint=2, err_on_non_converge=False)
+        # self.nonlinear_solver.linesearch = om.BoundsEnforceLS(print_bound_enforce=True)
+        # self.options["assembled_jac_type"] = "csc"
+        # self.linear_solver = om.DirectSolver(assemble_jac=True)
+        # self.nonlinear_solver.options["solve_subsystems"] = False
+        # self.nonlinear_solver.options["maxiter"] = 15
+        # self.nonlinear_solver.options["atol"] = 1e-4
+        # self.nonlinear_solver.options["rtol"] = 1e-4
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # arch = PropSysArch(  # Conventional without gearbox
     #     thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')]),
     #     mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')]),
@@ -201,15 +214,17 @@ if __name__ == '__main__':
     # )
     #
     arch = PropSysArch(  # parallel hybrid system
-        thrust=ThrustGenElements(propellers=[Propeller('prop1'), Propeller('prop2')],
-                                 gearboxes=[Gearbox('gearbox1'), Gearbox('gearbox2')]),
-        mech=MechPowerElements(engines=[Engine('turboshaft'), Engine('turboshaft')],
-                               motors=[Motor('motor'), Motor('motor')],
-                               mech_buses=MechBus('mech_bus'),
-                               mech_splitters=MechSplitter('mech_splitter'),
-                               inverters=Inverter('inverter')),
-        electric=ElectricPowerElements(dc_bus=DCBus('elec_bus'),
-                                       batteries=Batteries('bat_pack')),
+        thrust=ThrustGenElements(
+            propellers=[Propeller("prop1"), Propeller("prop2")], gearboxes=[Gearbox("gearbox1"), Gearbox("gearbox2")]
+        ),
+        mech=MechPowerElements(
+            engines=[Engine("turboshaft"), Engine("turboshaft")],
+            motors=[Motor("motor"), Motor("motor")],
+            mech_buses=MechBus("mech_bus"),
+            mech_splitters=MechSplitter("mech_splitter"),
+            inverters=Inverter("inverter"),
+        ),
+        electric=ElectricPowerElements(dc_bus=DCBus("elec_bus"), batteries=Batteries("bat_pack")),
     )
 
     prob = om.Problem()
